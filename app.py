@@ -4,8 +4,7 @@ from dotenv import load_dotenv
 from anthropic import Anthropic
 from schema import calc_tool
 import re
-
-from enum import Enum
+import os
 
 from colorama import Fore, Style, init
 
@@ -13,22 +12,11 @@ from colorama import Fore, Style, init
 load_dotenv()
 client = Anthropic()
 
+MODEL =os.getenv("MODEL", "model")
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
 
-# print(Fore.RED + "This text is red.")
-# print(Back.YELLOW + "This background is yellow.")
-# print(Style.BRIGHT + "This text is bright.")
-# print(Style.DIM + "This text is dim.")
-# print(Style.RESET_ALL + "Back to normal.")
-
-# print(Fore.GREEN + Style.BRIGHT + "Bright green text!")
-# print(Fore.CYAN + Back.BLACK + "Cyan text on black background.")
-
-class LLMResponseType(Enum):
-    DEFAULT = 0
-    TOOL = 1
 
 def extract_blocks(response_text):
     blocks = {}
@@ -41,31 +29,6 @@ def extract_blocks(response_text):
     blocks["answer"] = answer_match.group(1).strip() if answer_match else None
 
     return blocks
-
-
-# # Define the document loading tool
-# calc_tool = {
-#     "name": "print-calculate-tool",
-#     "description": "Performs a basic arithmetic operation on two numbers.",
-#     "input_schema": {
-#         "type": "object",
-#         "properties": {
-#             "num1": {
-#                 "type": "number",
-#                 "description": "The first number for the calculation.",
-#             },
-#             "operator": {
-#                 "type": "string",
-#                 "description": "The operation to perform (addition, multiplication, substraction, division).",
-#             },
-#             "num2": {
-#                 "type": "number",
-#                 "description": "The second number for the calculation.",
-#             },
-#         },
-#         "required": ["num1", "operator", "num2"],
-#     },
-# }
 
 
 def print_calc(num1: int, num2: int, operator: str):
@@ -90,181 +53,6 @@ def load_doc(filename: str = "documents.yml"):
         rag_content = f.read()
 
     return rag_content
-
-
-# def exec(prompt: str, client, tool_use: int = 0):
-#     rag_content = load_doc("documents.yml")
-
-#     system_prompt = f"""
-# You are provided with additional context data, which should be preloaded and used only when it is directly relevant to the user's query.
-
-# 1. **Preload Context:**  
-#    Read and store the provided document or text input. Treat this as optional reference material, not mandatory for every response.
-
-# 2. **RAG-Like Usage (Conditional):**  
-#    Use the following preloaded content *only if it clearly and directly relates to the user’s current question*:  
-#    {rag_content}
-
-# 3. **Prompt Classification (Mandatory):**  
-#    Before generating a response, internally classify the user's prompt into one of the following categories:
-#    - "calculation"
-#    - "knowledge_question"
-#    - "document_lookup"
-#    - "other"
-
-#    Apply the following logic based on the classification:
-#    - If "calculation", invoke the appropriate tool.
-#    - If "knowledge_question", respond directly using your trained knowledge.
-#    - If "document_lookup", consult the preloaded documents.
-#    - If "other", respond naturally using your trained knowledge.
-
-#    **Important:** Only invoke tools when the classification is "calculation".
-
-# 4. **Fallback to Trained Knowledge:**  
-#    If the preloaded content does not contain the answer, seamlessly refer to your trained knowledge and internal corpus to provide a complete response.
-
-# 5. **Structured Responses:**  
-#    When structuring responses, divide your output into two sections:
-
-#    - <reasoning>  
-#      Provide your thought process and explain how you arrived at the final answer.  
-#      Mention whether and how the preloaded content influenced the reasoning.  
-#    </reasoning>  
-
-#    - <answer>  
-#      Provide a concise, final answer without mentioning reasoning steps or process.  
-#    </answer>  
-
-#    **Important:** When replying to the user, **only return the <answer> block**.
-
-# 6. **User Inquiries About Preloaded Content:**  
-#    Only mention the preloaded content if the user explicitly asks about it or if it clearly applies to their question.
-
-# 7. **General Behavior:**  
-#    Respond naturally and accurately.  
-#    - Avoid stating that the preloaded content lacks relevant information unless the user asks directly.  
-#    - Prefer direct text responses. **Do not invoke tools unless necessary and properly validated.**
-# """
-
-
-#     # initial response to model
-#     # initiates the model session
-#     # user response
-#     # just text
-#     response = None
-#     messages = [{"role": "user", "content": prompt}]
-
-#     if tool_use == 0:
-#         print("not using tools")
-#         response = client.messages.create(
-#             model="claude-3-haiku-20240307",
-#             system=system_prompt,
-#             messages=[{"role": "user", "content": prompt}],
-#             max_tokens=400,
-#         )
-#     else:
-#         print("using tools for init response")
-
-#         response = client.messages.create(
-#             model="claude-3-haiku-20240307",
-#             system=system_prompt,
-#             tool_choice={'type': 'any',},
-#             messages=[{"role": "user", "content": prompt}],
-#             max_tokens=400,
-#             tools=[calc_tool],
-#         )
-
-
-
-#     # create while loop based on some condition
-#     # update messages based on each api encounter
-#     # probably print out answer
-
-
-
-
-#     if not response.content:
-#         raise ValueError("error")
-    
-
-#     # get response back from init
-
-#     # update messages for assistant object
-#     # call api
-
-#     # get response back create user message block
-
-
-#     # parse/create assistant response. and send back
-
-
-#     print()
-#     print("rrrr", response, response.role, response.content[-1])
-#     try:
-
-#         while True:
-#             print("messages array", messages)
-#             # messages.append({
-#             #     "role": response.role,
-#             #     "content": response.content[-1]
-#             # })
-
-#             # response = None
-            
-#             print()
-#             if response.stop_reason == "tool_use":
-#                 print("using tool")
-#                 content = response.content[-1]
-#                 print("content", content, content.name)
-#                 if content.name == "print-calculate-tool":
-#                     print("using calculator tool")
-
-#                     tool_input = content.input
-#                     response = print_calc(**tool_input)
-
-#                     messages.append({
-#                         "role": response.role,
-#                         "content": response
-#                     })
-
-#                     client.messages.create(
-#                         model="claude-3-haiku-20240307",
-#                         system=system_prompt,
-#                         tool_choice={'type': 'any',},
-#                         messages=messages,
-#                         max_tokens=400,
-#                         tools=[calc_tool],
-#                     )
-
-
-#                     print(Fore.RED + "res", response)
-                
-
-#                 print("hi")
-#             else:
-#                 print("else block")
-#                 message_block = response.content[-1]
-#                 response = message_block.text
-
-#                 print("message", message_block)
-
-#                 messages.append({
-#                     "role": response.role,
-#                     "content": message_block
-#                 })
-
-#                 client.messages.create(
-#                     model="claude-3-haiku-20240307",
-#                     system=system_prompt,
-#                     messages=messages,
-#                     max_tokens=400,
-#                 )
-
-#                 print(Fore.RED + "Text", Fore.RED + response)
-#     except KeyboardInterrupt as K:
-#         print("interupt from chatbot", K)
-#     except Exception as e:
-#         print("chatbox exception", e)
 
 
 def llm_classify_with_schema(prompt: str, client, tool_schema: dict) -> float:
@@ -292,7 +80,7 @@ Classify the following sentence:
     try:
 
         response = Anthropic().messages.create(
-            model="claude-3-haiku-20240307",
+            model=MODEL,
             messages=[{"role": "user", "content": classification_prompt}],
             max_tokens=10
         )
@@ -305,25 +93,6 @@ Classify the following sentence:
         return score
     except Exception:
         return 0.0  # Default to LLM corpus response if parsing fails
-
-
-
-# def client():
-#     client = Anthropic()
-#     # create a while loop that continually prompts user 
-#     # while true execute input sequence. enable a graceful exit
-
-#     try:
-#         while True:
-#             # print(Fore.GREEN + Style.BRIGHT + "Bright green text!")
-#             prompt = input(Fore.GREEN + Style.BRIGHT + "what is your question?: ")
-#             classification_result = llm_classify_with_schema(prompt, client, calc_tool)
-#             exec(prompt, client, classification_result)
-#     except KeyboardInterrupt as KI:
-#         raise ValueError("keyboard interuptt") 
-#     except Exception as e:
-#         print("exception wrapper", e)
-
 
 
 
@@ -445,7 +214,7 @@ def exec(prompt: str, client, messages: list, tool_use: int = 0):
     if tool_use == 0:
         print("not using tools")
         response = client.messages.create(
-            model="claude-3-haiku-20240307",
+            model=MODEL,
             system=current_prompt,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
@@ -454,7 +223,7 @@ def exec(prompt: str, client, messages: list, tool_use: int = 0):
         print("using tools for init response")
 
         response = client.messages.create(
-            model="claude-3-haiku-20240307",
+            model=MODEL,
             system=current_prompt,
             tool_choice={'type': 'any',},
             messages=[{"role": "user", "content": prompt}],
@@ -493,4 +262,6 @@ def chat_loop():
     except KeyboardInterrupt:
         print("\nChat session ended by user.")
 
-chat_loop()
+
+if __name__ == "__main__":
+    chat_loop()
