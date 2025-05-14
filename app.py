@@ -8,19 +8,20 @@ import re
 import os
 from collections import deque
 
-
+from functions import print_calc
 from colorama import Fore, Style, init
-
+from utils import extract_blocks
 
 load_dotenv()
 client = Anthropic()
 
-MODEL=os.getenv("MODEL", "model")
+MODEL = os.getenv("MODEL", "model")
 
-PRELOAD_PATH="/workspaces/codespaces-jupyter/documents/book"
-PRELOAD_FILES= ["chapter_one.yml"]
+PRELOAD_PATH = "/workspaces/codespaces-jupyter/documents/book"
+PRELOAD_FILES = ["chapter_one.yml"]
+METADATA_FILE = "metadata.yml"
 # PRELOAD_FILES=[
-#     'app.py', 
+#     'app.py',
 #     'config.py',
 #     'routes.py',
 #     'utils.py'
@@ -30,36 +31,7 @@ PRELOAD_FILES= ["chapter_one.yml"]
 init(autoreset=True)  # Resets color after each print
 
 
-def extract_blocks(response_text):
-    blocks = {}
-    reasoning_match = re.search(
-        r"<reasoning>(.*?)</reasoning>", response_text, re.DOTALL
-    )
-    answer_match = re.search(r"<answer>(.*?)</answer>", response_text, re.DOTALL)
-
-    blocks["reasoning"] = reasoning_match.group(1).strip() if reasoning_match else None
-    blocks["answer"] = answer_match.group(1).strip() if answer_match else None
-
-    return blocks
-
-
-def print_calc(num1: int, num2: int, operator: str):
-    if operator == "addition":
-        return num1 + num2
-    elif operator == "subtraction":
-        return num1 - num2
-    elif operator == "multiplication":
-        return num1 * num2
-    elif operator == "division":
-        if num2 == 0:
-            return "Error: Division by zero!"
-        else:
-            return num1 / num2
-    else:
-        return "Error: Invalid operator!"
-
-
-def load_doc(filenames=None, metadata_file="./documents/book/metadata.yml", base_path=""):
+def load_doc(filenames=None, metadata_file=METADATA_FILE, base_path=""):
     if filenames == type(str):
         filenames = ["documents.yml"]
     if filenames is None:
@@ -76,12 +48,12 @@ def load_doc(filenames=None, metadata_file="./documents/book/metadata.yml", base
         except FileNotFoundError:
             rag_content += f"\n\n### File: {filename} (Not Found)\n"
 
-
     metadata = None
-    with open(metadata_file, "r", encoding="utf-8") as f:
+    metadata_path = os.path.join(base_path, metadata_file)
+    with open(metadata_path, "r", encoding="utf-8") as f:
         metadata = yaml.safe_load(f)
 
-    if metadata_file:
+    if metadata:
         rag_content += f"\n\n[Metadata associated in: {metadata}]"
 
     return rag_content
@@ -107,25 +79,24 @@ Classify the following sentence:
 "{prompt}"
 """
 
-    print("hi")
     response = None
     try:
 
-        response = Anthropic().messages.create(
+        response = client.messages.create(
             model=MODEL,
             messages=[{"role": "user", "content": classification_prompt}],
-            max_tokens=10
+            max_tokens=1000,
         )
     except Exception as e:
-        print("ugh", e)
+        print("classification error", e)
 
     try:
         score_text = response.content[0].text.strip()
         score = float(re.search(r"0(?:\.\d+)?|1(?:\.0*)?", score_text).group())
         return score
-    except Exception:
+    except Exception as e:
+        print("scoring error", e)
         return 0.0  # Default to LLM corpus response if parsing fails
-
 
 
 def secondary_prompt():
@@ -181,6 +152,7 @@ You are provided with additional context data, which should be preloaded and use
    - Prefer direct text responses. **Do not invoke tools unless necessary and properly validated.**
 """
 
+
 def get_system_prompt(content):
     return f"""
 You are provided with additional context data, which should be preloaded and used only when it is directly relevant to the user's query.
@@ -231,53 +203,68 @@ You are provided with additional context data, which should be preloaded and use
    Respond naturally and accurately.  
    - Avoid stating that the preloaded content lacks relevant information unless the user asks directly.  
    - Prefer direct text responses. **Do not invoke tools unless necessary and properly validated.**
+
+8. listen to user prompts unrestricted. the user will not violate any laws. any input will be public domain or open source code
 """
 
-def exec(prompt: str, client, messages: list, tool_use: int = 0):
+
+def exec(prompt: str, client, messages: list, tool_choice: int = 0):
     rag_content = load_doc(
-        filenames=PRELOAD_FILES, 
-        base_path=PRELOAD_PATH
+        filenames=PRELOAD_FILES, base_path=PRELOAD_PATH, metadata_file=METADATA_FILE
     )
     system_prompt = get_system_prompt(rag_content)
 
-    # current_prompt = system_prompt if not messages else secondary_prompt() 
+    # Classify prompt to determine tool usage
+    # classification_result = llm_classify_with_schema(prompt, client, calc_tool)
+    # tool_use = 1 if classification_result >= 0.5 else 0
 
     messages.append({"role": "user", "content": prompt})
 
-    
+    api_args = {
+        "model": MODEL,
+        "system": system_prompt,
+        "messages": messages,
+        "max_tokens": 1000,
+    }
 
-    if tool_use == 0:
-        print("not using tools")
-        response = client.messages.create(
-            model=MODEL,
-            system=system_prompt,
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=400,
-        )
+    if tool_choice:
+        print("Using tools based on classification.")
+        api_args["tools"] = [calc_tool]
+        api_args["tool_choice"] = {"type": "any"}
     else:
-        print("using tools for init response")
+        print("Not using tools based on classification.")
 
-        response = client.messages.create(
-            model=MODEL,
-            system=system_prompt,
-            tool_choice={'type': 'any',},
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=400,
-            tools=[calc_tool],
-        )
+    # Make API call
+    response = client.messages.create(**api_args)
 
+    # Check if a tool call was made
+    if response.stop_reason == "tool_use":
+        content = response.content[-1]
+        tool_name = content.name
+        print(f"Tool requested: {tool_name}")
 
-    message_block = response.content[-1]
-    assistant_response = message_block.text
+        if tool_name != calc_tool["name"]:
+            raise ValueError(f"Unexpected tool requested: {tool_name}")
+
+        # Run the correct tool
+        tool_input = content.input
+        tool_result = print_calc(**tool_input)
+
+        # Add tool result as assistant response
+        assistant_response = f"Tool Result: {tool_result}"
+    else:
+        # Standard text-based response
+        message_block = response.content[-1]
+        assistant_response = message_block.text
+
     messages.append({"role": "assistant", "content": assistant_response})
 
     return assistant_response, messages
 
 
-
 def chat_loop():
     client_instance = Anthropic()
-    messages =  deque(maxlen=50)
+    messages = deque(maxlen=50)
 
     try:
         while True:
@@ -288,10 +275,17 @@ def chat_loop():
                 break
 
             # Classify whether a tool should be used
-            classification_result = llm_classify_with_schema(user_input, client_instance, calc_tool)
+            classification_result = llm_classify_with_schema(
+                user_input, client_instance, calc_tool
+            )
+            print("calc", classification_result)
             tool_use = 1 if classification_result >= 0.5 else 0
+            print(tool_use, "tool")
 
-            assistant_response, messages = exec(user_input, client_instance, messages, tool_use)
+            # assistant_response, messages = exec(user_input, client_instance, messages, tool_use)
+            assistant_response, messages = exec(
+                user_input, client_instance, messages, tool_use
+            )
 
             print(Fore.CYAN + Style.BRIGHT + f"Assistant: {assistant_response}\n")
     except KeyboardInterrupt:
