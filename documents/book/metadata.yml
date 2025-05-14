@@ -1,0 +1,23 @@
+project:
+  name: The Sorrows of Satan
+  description: >
+    A novel by Marie Corelli exploring themes of temptation, societal corruption, 
+    poverty, and the philosophical struggle between good and evil. This metadata 
+    file describes the first chapter of the book.
+
+files:
+  - path: chapter1.txt
+    title: Chapter 1 - The Curse of Poverty
+    description: >
+      Introduces the penniless writer, Geoffrey Tempest, and explores the harsh realities 
+      of poverty and his growing resentment towards the wealthy upper class. The chapter 
+      establishes the philosophical tone of the novel and sets the stage for the protagonist's 
+      eventual encounter with the mysterious Prince Lucio.
+    author: Marie Corelli
+    key_themes:
+      - Poverty and Social Inequality
+      - Bitterness and Envy of the Upper Class
+      - Loss of Self-Respect Under Economic Hardship
+      - Moral and Spiritual Corruption
+    characters:
+      - Geoffrey Tempest (Protagonist)

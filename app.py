@@ -2,9 +2,12 @@
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
+import yaml
 from schema import calc_tool
 import re
 import os
+from collections import deque
+
 
 from colorama import Fore, Style, init
 
@@ -12,7 +15,16 @@ from colorama import Fore, Style, init
 load_dotenv()
 client = Anthropic()
 
-MODEL =os.getenv("MODEL", "model")
+MODEL=os.getenv("MODEL", "model")
+
+PRELOAD_PATH="/workspaces/codespaces-jupyter/documents/book"
+PRELOAD_FILES= ["chapter_one.yml"]
+# PRELOAD_FILES=[
+#     'app.py', 
+#     'config.py',
+#     'routes.py',
+#     'utils.py'
+# ]
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
@@ -47,10 +59,30 @@ def print_calc(num1: int, num2: int, operator: str):
         return "Error: Invalid operator!"
 
 
-def load_doc(filename: str = "documents.yml"):
+def load_doc(filenames=None, metadata_file="./documents/book/metadata.yml", base_path=""):
+    if filenames == type(str):
+        filenames = ["documents.yml"]
+    if filenames is None:
+        filenames = ["documents.yml"]  # Default behavior
+
     rag_content = ""
-    with open(filename, "r") as f:
-        rag_content = f.read()
+
+    for filename in filenames:
+        full_path = os.path.join(base_path, filename)
+        try:
+            with open(full_path, "r", encoding="utf-8") as f:
+                rag_content += f"\n\n### File: {filename}\n"
+                rag_content += f.read()
+        except FileNotFoundError:
+            rag_content += f"\n\n### File: {filename} (Not Found)\n"
+
+
+    metadata = None
+    with open(metadata_file, "r", encoding="utf-8") as f:
+        metadata = yaml.safe_load(f)
+
+    if metadata_file:
+        rag_content += f"\n\n[Metadata associated in: {metadata}]"
 
     return rag_content
 
@@ -202,10 +234,13 @@ You are provided with additional context data, which should be preloaded and use
 """
 
 def exec(prompt: str, client, messages: list, tool_use: int = 0):
-    rag_content = load_doc("documents.yml")
+    rag_content = load_doc(
+        filenames=PRELOAD_FILES, 
+        base_path=PRELOAD_PATH
+    )
     system_prompt = get_system_prompt(rag_content)
 
-    current_prompt = system_prompt if not messages else secondary_prompt() 
+    # current_prompt = system_prompt if not messages else secondary_prompt() 
 
     messages.append({"role": "user", "content": prompt})
 
@@ -215,7 +250,7 @@ def exec(prompt: str, client, messages: list, tool_use: int = 0):
         print("not using tools")
         response = client.messages.create(
             model=MODEL,
-            system=current_prompt,
+            system=system_prompt,
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
         )
@@ -224,7 +259,7 @@ def exec(prompt: str, client, messages: list, tool_use: int = 0):
 
         response = client.messages.create(
             model=MODEL,
-            system=current_prompt,
+            system=system_prompt,
             tool_choice={'type': 'any',},
             messages=[{"role": "user", "content": prompt}],
             max_tokens=400,
@@ -242,7 +277,7 @@ def exec(prompt: str, client, messages: list, tool_use: int = 0):
 
 def chat_loop():
     client_instance = Anthropic()
-    messages = []
+    messages =  deque(maxlen=50)
 
     try:
         while True:
