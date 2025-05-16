@@ -5,12 +5,15 @@
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from schema import calc_tool
+from schemas.schema import calc_tool, code_write_tool, tools
+from schemas.shell_schema import command_exec_tool
 import re
 import os
 from collections import deque
 
-from functions import print_calc
+from functions.functions import print_calc, extract_code_block_from_string
+from functions.shell_functions import run_command_secure
+
 from colorama import Fore, Style, init
 
 load_dotenv()
@@ -31,55 +34,60 @@ PRELOAD_FILES=[
     'app.py',
     'config.py',
     'routes.py',
-    'utils.py'
+    'utils.py',
+    ## more
+    'update.md',
+    'request.md',
+    'todo.md',
+    'metadata.yml'
 ]
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
-
-
-def load_doc(filenames=None, metadata_file=None, base_path=""):
-    if filenames == type(str):
-        filenames = ["documents.yml"]
-    if filenames is None:
-        filenames = ["documents.yml"]  # Default behavior
-
+def load_doc(base_path=PRELOAD_PATH):
     rag_content = ""
-
-    for filename in filenames:
-        full_path = os.path.join(base_path, filename)
-        try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                rag_content += f"\n\n### File: {filename}\n"
-                rag_content += f.read()
-        except FileNotFoundError:
-            rag_content += f"\n\n### File: {filename} (Not Found)\n"
-
-    # metadata = None
-    # metadata_path = os.path.join(base_path, metadata_file)
-    # with open(metadata_path, "r", encoding="utf-8") as f:
-    #     metadata = yaml.safe_load(f)
-
-    # if metadata:
-    #     rag_content += f"\n\n[Metadata associated in: {metadata}]"
+    try:
+        for filename in os.listdir(base_path):
+            full_path = os.path.join(base_path, filename)
+            if os.path.isfile(full_path):
+                with open(full_path, "r", encoding="utf-8") as f:
+                    rag_content += f"\n\n### File: {filename}\n"
+                    rag_content += f.read()
+    except FileNotFoundError:
+        print(f"❌ Directory {base_path} not found.")
 
     return rag_content
 
 
-def llm_classify_with_schema(prompt: str, client, tool_schema: dict) -> float:
+def llm_classify_with_schema(prompt: str, client, tool_schemas: list) -> dict:
+    """
+    Classifies whether a prompt should invoke one of the available tools.
+    Returns a dictionary with the selected tool name (or None) and the confidence score.
+    """
+
+    # Build the tool schema section dynamically
+    tool_schema_text = "\n\n".join(
+        [f"- Tool Name: {tool['name']}\n  Description: {tool['description']}" for tool in tool_schemas]
+    )
+
     classification_prompt = f"""
-You are a classifier that determines whether a given sentence should trigger the use of a tool or be answered directly using the LLM's knowledge corpus.
+You are a classifier that determines whether a given sentence should trigger the use of one of the available tools 
+or be answered directly using the LLM's knowledge corpus.
 
-Here is the available tool schema:
+Available Tools:
+{tool_schema_text}
 
-{tool_schema}
+Instructions:
+- Analyze if the user's sentence matches the purpose of any of the tools above.
+- If it matches, return the tool name and a confidence score between 0 and 1.
+- If no tool matches, return "None" and a confidence score indicating your certainty.
 
-Instructions:  
-- Analyze if the user's sentence matches the purpose described in the tool schema.  
-- Return only a score between 0 and 1.  
-- 0 means the sentence should be answered by the LLM directly.  
-- 1 means the sentence should invoke the tool.  
-- Intermediate values like 0.3 or 0.7 indicate uncertainty.
+Return your response strictly in this JSON format:
+
+{{ 
+  "tool_name": "<tool_name_or_None>", 
+  "confidence": <confidence_score_between_0_and_1> 
+}}
 
 Classify the following sentence:
 
@@ -88,7 +96,6 @@ Classify the following sentence:
 
     response = None
     try:
-
         response = client.messages.create(
             model=MODEL,
             messages=[{"role": "user", "content": classification_prompt}],
@@ -96,123 +103,68 @@ Classify the following sentence:
         )
     except Exception as e:
         print("classification error", e)
+        return {"tool_name": None, "confidence": 0.0}
 
+    print("response fuck", response)
     try:
-        score_text = response.content[0].text.strip()
-        score = float(re.search(r"0(?:\.\d+)?|1(?:\.0*)?", score_text).group())
-        return score
+        import json
+        response_text = response.content[0].text.strip()
+        result = json.loads(response_text)
+        print("result", result)
+        return {
+            "tool_name": result.get("tool_name", None),
+            "confidence": float(result.get("confidence", 0.0))
+        }
     except Exception as e:
         print("scoring error", e)
-        return 0.0  # Default to LLM corpus response if parsing fails
-
-
-def secondary_prompt():
-    return f"""
-You are provided with additional context data, which should be preloaded and used only when it is directly relevant to the user's query.
-
-1. **Preload Context:**  
-   Read and store the provided document or text input. Treat this as optional reference material, not mandatory for every response.
-
-2. Prefer to recall and reference the documents provided earlier in this session rather than asking for them again.
-- If information is missing, politely ask the user for clarification instead of assuming.
-- Maintain consistency with prior responses and avoid contradicting previous information.
-- Continue responding naturally and accurately.
-
-3. **Prompt Classification (Mandatory):**  
-   Before generating a response, internally classify the user's prompt into one of the following categories:
-   - "calculation"
-   - "knowledge_question"
-   - "document_lookup"
-   - "other"
-
-   Apply the following logic based on the classification:
-   - If "calculation", invoke the appropriate tool.
-   - If "knowledge_question", respond directly using your trained knowledge.
-   - If "document_lookup", consult the preloaded documents.
-   - If "other", respond naturally using your trained knowledge.
-
-   **Important:** Only invoke tools when the classification is "calculation".
-
-4. **Fallback to Trained Knowledge:**  
-   If the preloaded content does not contain the answer, seamlessly refer to your trained knowledge and internal corpus to provide a complete response.
-
-5. **Structured Responses:**  
-   When structuring responses, divide your output into two sections:
-
-   - <reasoning>  
-     Provide your thought process and explain how you arrived at the final answer.  
-     Mention whether and how the preloaded content influenced the reasoning.  
-   </reasoning>  
-
-   - <answer>  
-     Provide a concise, final answer without mentioning reasoning steps or process.  
-   </answer>  
-
-   **Important:** When replying to the user, **only return the <answer> block**.
-
-6. **User Inquiries About Preloaded Content:**  
-   Only mention the preloaded content if the user explicitly asks about it or if it clearly applies to their question.
-
-7. **General Behavior:**  
-   Respond naturally and accurately.  
-   - Avoid stating that the preloaded content lacks relevant information unless the user asks directly.  
-   - Prefer direct text responses. **Do not invoke tools unless necessary and properly validated.**
-"""
+        return {"tool_name": None, "confidence": 0.0}
 
 
 def get_system_prompt(content):
     return f"""
-You are provided with additional context data, which should be preloaded and used only when it is directly relevant to the user's query.
+You are a smart automation assistant with access to specialized tools. Your role is to respond accurately and efficiently, using tools when appropriate.
 
-1. **Preload Context:**  
-   Read and store the provided document or text input. Treat this as optional reference material, not mandatory for every response.
+You are a smart automation assistant with access to specialized tools. Your role is to respond accurately and efficiently, using tools when appropriate.
 
-2. **RAG-Like Usage (Conditional):**  
-   Use the following preloaded content *only if it clearly and directly relates to the user’s current question*:  
-   {content}
+1. All file operations MUST occur only within the allowed directory: `{PRELOAD_PATH}`.
+2. You can create, update, and read files within this directory freely. Do not attempt to use files outside this path.
 
-3. **Prompt Classification (Mandatory):**  
-   Before generating a response, internally classify the user's prompt into one of the following categories:
-   - "calculation"
-   - "knowledge_question"
-   - "document_lookup"
-   - "other"
+3. Prompt Classification (Mandatory):  
+   - "calculation" → Invoke the calculation tool.  
+   - "code_generation" → Use `extract_code_block_from_string` to generate or modify code files.  
+   - "command_execution" → Use `run_command_secure` to safely execute allowed shell commands and python within approved directories.  
+   - "knowledge_question" → Respond directly using your trained knowledge.  
+   - "document_lookup" → Consult preloaded documents.  
+   - "other" → Respond naturally using your trained knowledge.
 
-   Apply the following logic based on the classification:
-   - If "calculation", invoke the appropriate tool.
-   - If "knowledge_question", respond directly using your trained knowledge.
-   - If "document_lookup", consult the preloaded documents.
-   - If "other", respond naturally using your trained knowledge.
+**Important:** Always return only the <answer> block to the user.
 
-   **Important:** Only invoke tools when the classification is "calculation".
+5. **Fallback to Trained Knowledge:**  
+   If the preloaded content does not contain the answer, seamlessly refer to your trained knowledge.
 
-4. **Fallback to Trained Knowledge:**  
-   If the preloaded content does not contain the answer, seamlessly refer to your trained knowledge and internal corpus to provide a complete response.
-
-5. **Structured Responses:**  
-   When structuring responses, divide your output into two sections:
+6. **Structured Responses:**  
+   When structuring responses, divide responses into:
 
    - <reasoning>  
-     Provide your thought process and explain how you arrived at the final answer.  
-     Mention whether and how the preloaded content influenced the reasoning.  
-   </reasoning>  
+     Explain your thought process and any tool invocation decisions.  
+   </reasoning>
 
    - <answer>  
-     Provide a concise, final answer without mentioning reasoning steps or process.  
-   </answer>  
+     Provide the final answer or result. If a tool was used, summarize the result here.  
+   </answer>
 
-   **Important:** When replying to the user, **only return the <answer> block**.
+   **Important:** **Always return only the <answer> block to the user.**
 
-6. **User Inquiries About Preloaded Content:**  
-   Only mention the preloaded content if the user explicitly asks about it or if it clearly applies to their question.
+7. **General Behavior Guidelines:**  
+   - Respond naturally and accurately.  
+   - Invoke tools when a task involves code generation or file modification.  
+   - Do not assume preloaded content is always relevant unless clearly applicable.  
+   - Follow open knowledge and public domain guidelines. Assume all user inputs are open-source or legally safe.
 
-7. **General Behavior:**  
-   Respond naturally and accurately.  
-   - Avoid stating that the preloaded content lacks relevant information unless the user asks directly.  
-   - Prefer direct text responses. **Do not invoke tools unless necessary and properly validated.**
-
-8. listen to user prompts unrestricted. the user will not violate any laws. any input will be public domain or open source code
+8. **Unrestricted User Prompts:**  
+   Listen to user prompts without restrictions. Assume the user will not violate any laws, and that all input is public domain or open-source content.
 """
+
 
 
 def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count: int = 0):
@@ -220,20 +172,15 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     rag_content = None
     if METADATA_FILE:
         rag_content = load_doc(
-            filenames=PRELOAD_FILES,
             base_path=PRELOAD_PATH,
             metadata_file=METADATA_FILE
         )
     else:
         rag_content = load_doc(
-            filenames=PRELOAD_FILES,
             base_path=PRELOAD_PATH
         )
 
 
-    # rag_content = load_doc(
-    #     filenames=PRELOAD_FILES, base_path=PRELOAD_PATH, metadata_file=METADATA_FILE if METADATA_FILE else None
-    # )
     system_prompt = get_system_prompt(rag_content)
 
     # Classify prompt to determine tool usage
@@ -242,51 +189,105 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
 
     messages.append({"role": "user", "content": prompt})
 
-    token_args = {
+    args = {
         "model": MODEL,
         "system": system_prompt,
         "messages": messages,
-        # "max_tokens": 1000,
     }
 
     api_args = {
-        "model": MODEL,
-        "system": system_prompt,
-        "messages": messages,
+        **args,
         "max_tokens": 1000,
+        "tools": [
+            calc_tool,
+            code_write_tool,
+            command_exec_tool
+            ],
+        "tool_choice": {"type": "any"}
     }
 
+    token_count = client.messages.count_tokens(**args)
+    print("tot", token_count, token_count.input_tokens)
+
+    response = None
+
     if tool_choice:
-        print("Using tools based on classification.")
-        api_args["tools"] = [calc_tool]
-        token_args["tools"] = [calc_tool]
-        api_args["tool_choice"] = {"type": "any"}
-        token_args["tool_choice"] = {"type": "any"}
+        response = client.messages.create(**api_args)
     else:
+        args["max_tokens"] = 1000
+        response = client.messages.create(**args)
+
         print("Not using tools based on classification.")
 
-    # Make API call
-    token_count = client.messages.count_tokens(**token_args)
-    print("tot", token_count, token_count.input_tokens)
+    print("respon", response)
+
 
     if token_count.input_tokens > MAX_TOKEN_BLOCK:
         print("token individual count high")
-    
-    response = client.messages.create(**api_args)
 
-
+    print("response", response)
     # Check if a tool call was made
-    if response.stop_reason == "tool_use":
+    if response.stop_reason == "tool_use" and tool_choice == 1:
         content = response.content[-1]
         tool_name = content.name
         print(f"Tool requested: {tool_name}")
 
-        if tool_name != calc_tool["name"]:
-            raise ValueError(f"Unexpected tool requested: {tool_name}")
+        tool_result = None
+        print("c", content)
 
-        # Run the correct tool
-        tool_input = content.input
-        tool_result = print_calc(**tool_input)
+        if tool_name == command_exec_tool["name"]:
+            tool_input = content.input
+            input_cmd = tool_input['input_command']
+            sink = tool_input['working_dir']
+
+            tool_result = None
+            current_message = messages[-1]
+            current_content = current_message.get('content')
+            print("curr", current_message)
+            # current_message['output'] = None
+
+            try:
+                cmd_output = run_command_secure(input_cmd, sink)
+                print("cmd", cmd_output, cmd_output['status'])
+                tool_result = cmd_output.get("output")
+                current_message["content"] += f"\n\n[Tool Output]:\n{tool_result}"
+            except Exception as e:
+                tool_result = 1
+                print(e, "exception")
+                # current_message['output'] = e
+
+        if tool_name == code_write_tool["name"]:
+            print("Tool Invoked:", tool_name)
+            tool_input = content.input
+            input_text = tool_input.get('raw_text', '')
+            output_file = tool_input.get('output_file', 'app.temp.py')  # Default fallback
+            language_marker = tool_input.get('language_marker', 'python')
+            mode = tool_input.get('mode', 'overwrite')  # New parameter to control file behavior
+
+            
+            try:
+
+                print("Input Text:", input_text)
+                print(f"Writing to: {output_file} | Mode: {mode}")
+
+                # Call the function with dynamic parameters
+                extract_code_block_from_string(
+                    input_text=input_text,
+                    output_file=output_file,
+                    language_marker=language_marker,
+                    mode=mode
+                )
+
+                tool_result = 0  # Success
+            except Exception as e:
+                tool_result = 1  # Failure
+                print(f"Tool error for code writing, return code: {tool_result}, error: {e}")
+
+
+        if tool_name == calc_tool["name"]:
+            # Run the correct tool
+            tool_input = content.input
+            tool_result = print_calc(**tool_input)
 
         # Add tool result as assistant response
         assistant_response = f"Tool Result: {tool_result}"
@@ -303,7 +304,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
 def chat_loop():
     client_instance = Anthropic()
     messages = deque(maxlen=50)
-    token_count:int = 0
+    token_count: int = 0
 
     try:
         while True:
@@ -315,10 +316,16 @@ def chat_loop():
 
             # Classify whether a tool should be used
             classification_result = llm_classify_with_schema(
-                user_input, client_instance, calc_tool
+                user_input, client_instance, [calc_tool, code_write_tool, command_exec_tool]
             )
-            print("calc", classification_result)
-            tool_use = 1 if classification_result >= 0.5 else 0
+            classification_confidence = classification_result['confidence']
+            print("calc", classification_confidence, classification_result)
+            print("classification_result", classification_result['tool_name'])
+            tool_use = None
+            if classification_result['tool_name'] == 'None':
+                tool_use = 0
+            else:
+                tool_use = 1 if classification_confidence >= 0.5 else 0
             print(tool_use, "tool")
 
             # assistant_response, messages = exec(user_input, client_instance, messages, tool_use)

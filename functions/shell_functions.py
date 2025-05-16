@@ -19,14 +19,16 @@ def is_command_allowed(command):
     except IndexError:
         return False  # Empty command
 
+
 def run_command_secure(input_command, working_dir):
     working_dir = os.path.abspath(working_dir)
 
     if not is_within_whitelist(working_dir):
-        return f"❌ Execution in directory '{working_dir}' is not allowed."
+        return {"status": 1, "output": f"❌ Execution in directory '{working_dir}' is not allowed."}
 
     if not is_command_allowed(input_command):
-        return f"❌ Command '{shlex.split(input_command)[0]}' is not in the allowed commands list."
+        cmd = shlex.split(input_command)[0] if input_command else ""
+        return {"status": 1, "output": f"❌ Command '{cmd}' is not in the allowed commands list."}
 
     try:
         tokens = shlex.split(input_command)
@@ -37,13 +39,14 @@ def run_command_secure(input_command, working_dir):
             text=True,
             check=True
         )
-        return result.stdout.strip()
+        return {"status": 0, "output": result.stdout.strip()}
     except subprocess.CalledProcessError as e:
-        return f"❌ Command failed: {e.stderr.strip()}"
+        return {"status": 1, "output": f"❌ Command failed: {e.stderr.strip()}"}
 
 
-if __name__ == "__name__":
+if __name__ == "__main__":
+    print("hi")
 
-    r =run_command_secure("python3 hello.py", f"/workspaces/codespaces-jupyter/dummyapp")
+    r =run_command_secure("cat app.py", f"/workspaces/codespaces-jupyter/dummyapp")
 
-    print(r)
+    print("rrr", r)
