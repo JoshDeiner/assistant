@@ -14,7 +14,7 @@ def load_doc(base_path):
 
     return rag_content
 
-def llm_classify_with_schema(prompt: str, client, tool_schemas: list, model) -> dict:
+def llm_classify_with_schema(prompt: str, client, model, tool_schemas: list) -> dict:
     """
     Classifies whether a prompt should invoke one of the available tools.
     Returns a dictionary with the selected tool name (or None) and the confidence score.
@@ -64,7 +64,6 @@ Classify the following sentence:
         import json
         response_text = response.content[0].text.strip()
         result = json.loads(response_text)
-        print("result", result)
         return {
             "tool_name": result.get("tool_name", None),
             "confidence": float(result.get("confidence", 0.0))

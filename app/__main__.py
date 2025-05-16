@@ -100,13 +100,11 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
 
         print("Not using tools based on classification.")
 
-    print("respon", response)
 
 
     if token_count.input_tokens > MAX_TOKEN_BLOCK:
         print("token individual count high")
 
-    print("response", response)
     # Check if a tool call was made
     if response.stop_reason == "tool_use" and tool_choice == 1:
         content = response.content[-1]
