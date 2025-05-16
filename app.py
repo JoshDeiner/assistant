@@ -1,8 +1,10 @@
 # Import document loading functions and tool schema
 
+# prompt ideas
+# entity mapping for relationships and events
+
 from dotenv import load_dotenv
 from anthropic import Anthropic
-import yaml
 from schema import calc_tool
 import re
 import os
@@ -10,28 +12,33 @@ from collections import deque
 
 from functions import print_calc
 from colorama import Fore, Style, init
-from utils import extract_blocks
 
 load_dotenv()
 client = Anthropic()
 
 MODEL = os.getenv("MODEL", "model")
+MAX_CONTEXT_WINDOW = int(os.getenv("CONTEXT_WINDOW", 200_000))
+MAX_TOKEN_BLOCK = int(os.getenv("MAX_TOKEN_BLOCK", 8000))
 
-PRELOAD_PATH = "/workspaces/codespaces-jupyter/documents/book"
-PRELOAD_FILES = ["chapter_one.yml"]
-METADATA_FILE = "metadata.yml"
-# PRELOAD_FILES=[
-#     'app.py',
-#     'config.py',
-#     'routes.py',
-#     'utils.py'
-# ]
+# PRELOAD_PATH = "/workspaces/codespaces-jupyter/documents/book"
+PRELOAD_PATH = "/workspaces/codespaces-jupyter/dummyapp"
+
+# PRELOAD_FILES = ["chapter_one.yml"]
+# METADATA_FILE = "metadata.yml"
+METADATA_FILE = ""
+
+PRELOAD_FILES=[
+    'app.py',
+    'config.py',
+    'routes.py',
+    'utils.py'
+]
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
 
 
-def load_doc(filenames=None, metadata_file=METADATA_FILE, base_path=""):
+def load_doc(filenames=None, metadata_file=None, base_path=""):
     if filenames == type(str):
         filenames = ["documents.yml"]
     if filenames is None:
@@ -48,13 +55,13 @@ def load_doc(filenames=None, metadata_file=METADATA_FILE, base_path=""):
         except FileNotFoundError:
             rag_content += f"\n\n### File: {filename} (Not Found)\n"
 
-    metadata = None
-    metadata_path = os.path.join(base_path, metadata_file)
-    with open(metadata_path, "r", encoding="utf-8") as f:
-        metadata = yaml.safe_load(f)
+    # metadata = None
+    # metadata_path = os.path.join(base_path, metadata_file)
+    # with open(metadata_path, "r", encoding="utf-8") as f:
+    #     metadata = yaml.safe_load(f)
 
-    if metadata:
-        rag_content += f"\n\n[Metadata associated in: {metadata}]"
+    # if metadata:
+    #     rag_content += f"\n\n[Metadata associated in: {metadata}]"
 
     return rag_content
 
@@ -208,10 +215,25 @@ You are provided with additional context data, which should be preloaded and use
 """
 
 
-def exec(prompt: str, client, messages: list, tool_choice: int = 0):
-    rag_content = load_doc(
-        filenames=PRELOAD_FILES, base_path=PRELOAD_PATH, metadata_file=METADATA_FILE
-    )
+def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count: int = 0):
+
+    rag_content = None
+    if METADATA_FILE:
+        rag_content = load_doc(
+            filenames=PRELOAD_FILES,
+            base_path=PRELOAD_PATH,
+            metadata_file=METADATA_FILE
+        )
+    else:
+        rag_content = load_doc(
+            filenames=PRELOAD_FILES,
+            base_path=PRELOAD_PATH
+        )
+
+
+    # rag_content = load_doc(
+    #     filenames=PRELOAD_FILES, base_path=PRELOAD_PATH, metadata_file=METADATA_FILE if METADATA_FILE else None
+    # )
     system_prompt = get_system_prompt(rag_content)
 
     # Classify prompt to determine tool usage
@@ -219,6 +241,13 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0):
     # tool_use = 1 if classification_result >= 0.5 else 0
 
     messages.append({"role": "user", "content": prompt})
+
+    token_args = {
+        "model": MODEL,
+        "system": system_prompt,
+        "messages": messages,
+        # "max_tokens": 1000,
+    }
 
     api_args = {
         "model": MODEL,
@@ -230,12 +259,21 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0):
     if tool_choice:
         print("Using tools based on classification.")
         api_args["tools"] = [calc_tool]
+        token_args["tools"] = [calc_tool]
         api_args["tool_choice"] = {"type": "any"}
+        token_args["tool_choice"] = {"type": "any"}
     else:
         print("Not using tools based on classification.")
 
     # Make API call
+    token_count = client.messages.count_tokens(**token_args)
+    print("tot", token_count, token_count.input_tokens)
+
+    if token_count.input_tokens > MAX_TOKEN_BLOCK:
+        print("token individual count high")
+    
     response = client.messages.create(**api_args)
+
 
     # Check if a tool call was made
     if response.stop_reason == "tool_use":
@@ -259,12 +297,13 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0):
 
     messages.append({"role": "assistant", "content": assistant_response})
 
-    return assistant_response, messages
+    return assistant_response, messages, token_count
 
 
 def chat_loop():
     client_instance = Anthropic()
     messages = deque(maxlen=50)
+    token_count:int = 0
 
     try:
         while True:
@@ -283,9 +322,13 @@ def chat_loop():
             print(tool_use, "tool")
 
             # assistant_response, messages = exec(user_input, client_instance, messages, tool_use)
-            assistant_response, messages = exec(
+            assistant_response, messages, token_count = exec(
                 user_input, client_instance, messages, tool_use
             )
+
+            token_limit = MAX_CONTEXT_WINDOW * 0.25
+            if token_count.input_tokens >= token_limit:
+                print("token size at 25%")
 
             print(Fore.CYAN + Style.BRIGHT + f"Assistant: {assistant_response}\n")
     except KeyboardInterrupt:
