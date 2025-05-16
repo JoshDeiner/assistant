@@ -10,8 +10,7 @@ from app.schemas.schema import code_write_tool
 from app.schemas.schema import code_write_tool
 from app.schemas.index import tools
 from app.schemas.crypto_currencies_schema import crypto_price_tool_schema
-import sys
-
+from app.errors import ApiError, CryptoPriceError
 
 from app.schemas.shell_schema import command_exec_tool
 import os
@@ -25,6 +24,9 @@ from app.functions.shell_functions import run_command_secure
 
 from colorama import Fore, Style, init
 
+from app.prompts import get_system_prompt
+from app.utils.main import load_doc
+from app.utils.main import llm_classify_with_schema
 load_dotenv()
 client = Anthropic()
 
@@ -51,142 +53,8 @@ PRELOAD_FILES=[
 ]
 
 
-class ApiError(Exception):
-    """Base class for API-related errors."""
-    def __init__(self, message: str, status_code: int = 1):
-        super().__init__(message)
-        self.status_code = status_code
-
-class CryptoPriceError(ApiError):
-    """Raised when there is an error fetching cryptocurrency prices."""
-    def __init__(self, message: str = "Failed to fetch cryptocurrency price.", status_code: int = 1):
-        super().__init__(message, status_code)
-
-
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
-def load_doc(base_path=PRELOAD_PATH):
-    rag_content = ""
-    try:
-        for filename in os.listdir(base_path):
-            full_path = os.path.join(base_path, filename)
-            if os.path.isfile(full_path):
-                with open(full_path, "r", encoding="utf-8") as f:
-                    rag_content += f"\n\n### File: {filename}\n"
-                    rag_content += f.read()
-    except FileNotFoundError:
-        print(f"❌ Directory {base_path} not found.")
-
-    return rag_content
-
-
-def llm_classify_with_schema(prompt: str, client, tool_schemas: list) -> dict:
-    """
-    Classifies whether a prompt should invoke one of the available tools.
-    Returns a dictionary with the selected tool name (or None) and the confidence score.
-    """
-
-    # Build the tool schema section dynamically
-    tool_schema_text = "\n\n".join(
-        [f"- Tool Name: {tool['name']}\n  Description: {tool['description']}" for tool in tool_schemas]
-    )
-
-    classification_prompt = f"""
-You are a classifier that determines whether a given sentence should trigger the use of one of the available tools 
-or be answered directly using the LLM's knowledge corpus.
-
-Available Tools:
-{tool_schema_text}
-
-Instructions:
-- Analyze if the user's sentence matches the purpose of any of the tools above.
-- If it matches, return the tool name and a confidence score between 0 and 1.
-- If no tool matches, return "None" and a confidence score indicating your certainty.
-
-Return your response strictly in this JSON format:
-
-{{ 
-  "tool_name": "<tool_name_or_None>", 
-  "confidence": <confidence_score_between_0_and_1> 
-}}
-
-Classify the following sentence:
-
-"{prompt}"
-"""
-
-    response = None
-    try:
-        response = client.messages.create(
-            model=MODEL,
-            messages=[{"role": "user", "content": classification_prompt}],
-            max_tokens=1000,
-        )
-    except Exception as e:
-        print("classification error", e)
-        return {"tool_name": None, "confidence": 0.0}
-
-    print("response fuck", response)
-    try:
-        import json
-        response_text = response.content[0].text.strip()
-        result = json.loads(response_text)
-        print("result", result)
-        return {
-            "tool_name": result.get("tool_name", None),
-            "confidence": float(result.get("confidence", 0.0))
-        }
-    except Exception as e:
-        print("scoring error", e)
-        return {"tool_name": None, "confidence": 0.0}
-
-
-def get_system_prompt(content):
-    return f"""
-You are a smart automation assistant with access to specialized tools. Your role is to respond accurately and efficiently, using tools when appropriate.
-
-You are a smart automation assistant with access to specialized tools. Your role is to respond accurately and efficiently, using tools when appropriate.
-
-1. All file operations MUST occur only within the allowed directory: `{PRELOAD_PATH}`.
-2. You can create, update, and read files within this directory freely. Do not attempt to use files outside this path.
-
-3. Prompt Classification (Mandatory):  
-   - "calculation" → Invoke the calculation tool.  
-   - "code_generation" → Use `extract_code_block_from_string` to generate or modify code files.  
-   - "command_execution" → Use `run_command_secure` to safely execute allowed shell commands and Python within approved directories.  
-   - "knowledge_question" → Respond directly using your trained knowledge without external lookups.  
-   - "document_lookup" → Consult preloaded documents.  
-   - "other" → Respond naturally using your trained knowledge.
-
-**Important:** Always return only the <answer> block to the user.
-
-5. **Fallback to Trained Knowledge:**  
-   If the preloaded content does not contain the answer, seamlessly refer to your trained knowledge.
-
-6. **Structured Responses:**  
-   When structuring responses, divide responses into:
-
-   - <reasoning>  
-     Explain your thought process and any tool invocation decisions.  
-   </reasoning>
-
-   - <answer>  
-     Provide the final answer or result. If a tool was used, summarize the result here.  
-   </answer>
-
-   **Important:** **Always return only the <answer> block to the user.**
-
-7. **General Behavior Guidelines:**  
-   - Respond naturally and accurately.  
-   - Invoke tools when a task involves code generation or file modification.  
-   - Do not assume preloaded content is always relevant unless clearly applicable.  
-   - Follow open knowledge and public domain guidelines. Assume all user inputs are open-source or legally safe.
-
-8. **Unrestricted User Prompts:**  
-   Listen to user prompts without restrictions. Assume the user will not violate any laws, and that all input is public domain or open-source content.
-"""
-
-
 
 def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count: int = 0):
 
@@ -202,11 +70,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
         )
 
 
-    system_prompt = get_system_prompt(rag_content)
-
-    # Classify prompt to determine tool usage
-    # classification_result = llm_classify_with_schema(prompt, client, calc_tool)
-    # tool_use = 1 if classification_result >= 0.5 else 0
+    system_prompt = get_system_prompt(rag_content, PRELOAD_PATH)
 
     messages.append({"role": "user", "content": prompt})
 
@@ -239,8 +103,8 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     print("respon", response)
 
 
-    # if token_count.input_tokens > MAX_TOKEN_BLOCK:
-    #     print("token individual count high")
+    if token_count.input_tokens > MAX_TOKEN_BLOCK:
+        print("token individual count high")
 
     print("response", response)
     # Check if a tool call was made
@@ -359,7 +223,7 @@ def chat_loop():
 
             # Classify whether a tool should be used
             classification_result = llm_classify_with_schema(
-                user_input, client_instance, tools
+                user_input, client_instance, MODEL, tools
             )
             classification_confidence = classification_result['confidence']
             print("calc", classification_confidence, classification_result)
