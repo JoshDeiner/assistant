@@ -47,6 +47,6 @@ def run_command_secure(input_command, working_dir):
 if __name__ == "__main__":
     print("hi")
 
-    r =run_command_secure("cat app.py", f"/workspaces/codespaces-jupyter/dummyapp")
+    r =run_command_secure("cat tmp.md", f"/workspaces/codespaces-jupyter/dummyapp")
 
     print("rrr", r)

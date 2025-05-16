@@ -2,6 +2,8 @@
 
 # prompt ideas
 # entity mapping for relationships and events
+import sys
+from typing import List
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
@@ -222,8 +224,8 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     print("respon", response)
 
 
-    if token_count.input_tokens > MAX_TOKEN_BLOCK:
-        print("token individual count high")
+    # if token_count.input_tokens > MAX_TOKEN_BLOCK:
+    #     print("token individual count high")
 
     print("response", response)
     # Check if a tool call was made
@@ -301,6 +303,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     return assistant_response, messages, token_count
 
 
+
 def chat_loop():
     client_instance = Anthropic()
     messages = deque(maxlen=50)
@@ -340,6 +343,7 @@ def chat_loop():
             print(Fore.CYAN + Style.BRIGHT + f"Assistant: {assistant_response}\n")
     except KeyboardInterrupt:
         print("\nChat session ended by user.")
+
 
 
 if __name__ == "__main__":
