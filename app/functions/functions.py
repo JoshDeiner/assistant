@@ -18,84 +18,13 @@ def print_calc(num1: int, num2: int, operator: str):
 
 
 
-# def extract_code_block_from_string(input_text, language_marker="python"):
-#     print("input text", input_text)
-#     inside_block = False
-#     extracted_lines = []
-
-#     for line in input_text.splitlines():
-#         stripped_line = line.strip()
-        
-#         if stripped_line == f"```{language_marker}":
-#             inside_block = True
-#             continue
-#         if stripped_line.startswith("```") and inside_block:
-#             inside_block = False
-#             continue
-#         if stripped_line.startswith("</") and inside_block:
-#             # Closing tag detected, assume end of block
-#             inside_block = False
-#             continue
-#         if inside_block:
-#             extracted_lines.append(line)
-            
-#     print("res", extracted_lines)
-#     return "\n".join(extracted_lines).strip()
-
-'''
-def extract_code_block_from_string(input_text, output_file, language_marker="python", mode="overwrite"):
-    print("input text", input_text)
-    inside_block = False
-    extracted_lines = []
-
-    for line in input_text.splitlines():
-        stripped_line = line.strip()
-        if stripped_line == f"```{language_marker}":
-            inside_block = True
-            continue
-        if stripped_line.startswith("```") and inside_block:
-            inside_block = False
-            continue
-        if stripped_line.startswith("</") and inside_block:
-            inside_block = False
-            continue
-        if inside_block:
-            extracted_lines.append(line)
-
-    if not extracted_lines and input_text.strip():
-        print("⚠️ No code block markers found, falling back to raw input.")
-        extracted_code = input_text.strip()
-    else:
-        extracted_code = "\n".join(extracted_lines).strip()
-
-    # ✅ Handle File Writing Modes
-    if mode == "append":
-        with open(output_file, "a") as f:
-            f.write("\n" + extracted_code + "\n")
-    elif mode == "merge":
-        try:
-            with open(output_file, "r") as f:
-                existing_content = f.read()
-            if extracted_code not in existing_content:
-                with open(output_file, "a") as f:
-                    f.write("\n" + extracted_code + "\n")
-        except FileNotFoundError:
-            with open(output_file, "w") as f:
-                f.write(extracted_code + "\n")
-    else:  # overwrite
-        with open(output_file, "w") as f:
-            f.write(extracted_code + "\n")
-
-    print(f"Code written to {output_file} with mode '{mode}'")
-    return 0
-'''
 
 def extract_code_block_from_string(input_text, output_file, language_marker="python", mode="overwrite"):
     print("input text", input_text)
     inside_block = False
     extracted_lines = []
 
-    PRELOAD_PATH = "/workspaces/codespaces-jupyter/dummyapp"
+    PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
 
     # Secure and restrict file path to the special directory
     safe_base_path = os.path.abspath(PRELOAD_PATH)

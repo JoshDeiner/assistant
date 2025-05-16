@@ -1,5 +1,5 @@
-from crypto_currency_clients import BitcoinPriceClient
-from api_client import ApiClient
+from app.clients.crypto_currency_clients import BitcoinPriceClient
+from app.clients.api_client import ApiClient
 
 class ApiClientFactory:
     _clients = {

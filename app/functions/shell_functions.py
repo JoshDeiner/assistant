@@ -1,9 +1,13 @@
 import subprocess
 import shlex
 import os
-
+from dotenv import load_dotenv
 # Whitelisted Directories
-ALLOWED_DIRS = ["/workspaces/codespaces-jupyter/dummyapp"]
+
+load_dotenv()
+
+PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
+ALLOWED_DIRS = [PRELOAD_PATH]
 
 # Whitelisted Commands
 ALLOWED_COMMANDS = ["pytest", "python3", "ls", "echo", "cat"]
@@ -47,6 +51,6 @@ def run_command_secure(input_command, working_dir):
 if __name__ == "__main__":
     print("hi")
 
-    r =run_command_secure("cat tmp.md", f"/workspaces/codespaces-jupyter/dummyapp")
+    r =run_command_secure("cat tmp.md", PRELOAD_PATH)
 
     print("rrr", r)

@@ -54,7 +54,3 @@ code_write_tool = {
 
 
 
-tools = [
-    calc_tool,
-    code_write_tool
-]

@@ -1,4 +1,4 @@
-from factory_clients import ApiClientFactory
+from app.clients.factory_clients import ApiClientFactory
 
 if __name__ == "__main__":
     api_client = ApiClientFactory()

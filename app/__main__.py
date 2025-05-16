@@ -2,19 +2,26 @@
 
 # prompt ideas
 # entity mapping for relationships and events
-import sys
-from typing import List
 
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from schemas.schema import calc_tool, code_write_tool, tools
-from schemas.shell_schema import command_exec_tool
-import re
+from app.schemas.schema import calc_tool
+from app.schemas.schema import code_write_tool
+from app.schemas.schema import code_write_tool
+from app.schemas.index import tools
+from app.schemas.crypto_currencies_schema import crypto_price_tool_schema
+import sys
+
+
+from app.schemas.shell_schema import command_exec_tool
 import os
 from collections import deque
 
-from functions.functions import print_calc, extract_code_block_from_string
-from functions.shell_functions import run_command_secure
+from app.functions.functions import print_calc
+from app.functions.functions import extract_code_block_from_string
+from app.functions.crypto_currency_functions import bitcoin_price_tool
+
+from app.functions.shell_functions import run_command_secure
 
 from colorama import Fore, Style, init
 
@@ -25,8 +32,7 @@ MODEL = os.getenv("MODEL", "model")
 MAX_CONTEXT_WINDOW = int(os.getenv("CONTEXT_WINDOW", 200_000))
 MAX_TOKEN_BLOCK = int(os.getenv("MAX_TOKEN_BLOCK", 8000))
 
-# PRELOAD_PATH = "/workspaces/codespaces-jupyter/documents/book"
-PRELOAD_PATH = "/workspaces/codespaces-jupyter/dummyapp"
+PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
 
 # PRELOAD_FILES = ["chapter_one.yml"]
 # METADATA_FILE = "metadata.yml"
@@ -43,6 +49,19 @@ PRELOAD_FILES=[
     'todo.md',
     'metadata.yml'
 ]
+
+
+class ApiError(Exception):
+    """Base class for API-related errors."""
+    def __init__(self, message: str, status_code: int = 1):
+        super().__init__(message)
+        self.status_code = status_code
+
+class CryptoPriceError(ApiError):
+    """Raised when there is an error fetching cryptocurrency prices."""
+    def __init__(self, message: str = "Failed to fetch cryptocurrency price.", status_code: int = 1):
+        super().__init__(message, status_code)
+
 
 # Initialize colorama for Windows compatibility
 init(autoreset=True)  # Resets color after each print
@@ -134,8 +153,8 @@ You are a smart automation assistant with access to specialized tools. Your role
 3. Prompt Classification (Mandatory):  
    - "calculation" → Invoke the calculation tool.  
    - "code_generation" → Use `extract_code_block_from_string` to generate or modify code files.  
-   - "command_execution" → Use `run_command_secure` to safely execute allowed shell commands and python within approved directories.  
-   - "knowledge_question" → Respond directly using your trained knowledge.  
+   - "command_execution" → Use `run_command_secure` to safely execute allowed shell commands and Python within approved directories.  
+   - "knowledge_question" → Respond directly using your trained knowledge without external lookups.  
    - "document_lookup" → Consult preloaded documents.  
    - "other" → Respond naturally using your trained knowledge.
 
@@ -200,11 +219,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     api_args = {
         **args,
         "max_tokens": 1000,
-        "tools": [
-            calc_tool,
-            code_write_tool,
-            command_exec_tool
-            ],
+        "tools": tools,
         "tool_choice": {"type": "any"}
     }
 
@@ -235,7 +250,32 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
         print(f"Tool requested: {tool_name}")
 
         tool_result = None
-        print("c", content)
+
+        if tool_name == crypto_price_tool_schema["name"]:
+            tool_input = content.input
+            tool_result = None
+            current_message = messages[-1]
+
+            try:
+                # call tool
+                # Call tool only once
+                status, cmd_result = bitcoin_price_tool(currency="usd")
+                print("st", status, cmd_result)
+
+                if status == 1:
+                    raise ValueError("problem with api request")
+
+                statement = f"Bitcoin current price: {cmd_result.get('bitcoin_price')}"
+                print("statement", statement)
+                current_message["content"] += f"\n\n[Tool Output]:\n{statement}"
+                tool_result = statement
+            except CryptoPriceError as e:
+                print(f"❌ Crypto Error: {e}")
+            except ApiError as e:
+                print(f"❌ General API Error: {e}")
+            except Exception as e:
+                print(f"error: {e}")
+                return 1 
 
         if tool_name == command_exec_tool["name"]:
             tool_input = content.input
@@ -244,7 +284,6 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
 
             tool_result = None
             current_message = messages[-1]
-            current_content = current_message.get('content')
             print("curr", current_message)
             # current_message['output'] = None
 
@@ -253,6 +292,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
                 print("cmd", cmd_output, cmd_output['status'])
                 tool_result = cmd_output.get("output")
                 current_message["content"] += f"\n\n[Tool Output]:\n{tool_result}"
+                
             except Exception as e:
                 tool_result = 1
                 print(e, "exception")
@@ -319,7 +359,7 @@ def chat_loop():
 
             # Classify whether a tool should be used
             classification_result = llm_classify_with_schema(
-                user_input, client_instance, [calc_tool, code_write_tool, command_exec_tool]
+                user_input, client_instance, tools
             )
             classification_confidence = classification_result['confidence']
             print("calc", classification_confidence, classification_result)
