@@ -26,7 +26,7 @@ class BitcoinPriceClient(ApiClient):
         # Initialize parent with query params
         super().__init__({"ids": "bitcoin", "vs_currencies": currency.lower()})
         # Inject or default to RequestsHTTPService
-        self.http = http_service or RequestsHTTPService()
+        self.http = RequestsHTTPService()
 
     @property
     def BASE_URL(self) -> str:
