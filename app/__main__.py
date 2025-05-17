@@ -1,278 +1,111 @@
 # Import document loading functions and tool schema
-
-# prompt ideas
-# entity mapping for relationships and events
-
+import os
 from dotenv import load_dotenv
 from anthropic import Anthropic
-from app.schemas.schema import calc_tool
-from app.schemas.schema import code_write_tool
-from app.schemas.schema import code_write_tool
-
-from app.schemas.index import tools
-from app.schemas.crypto_currencies_schema import crypto_price_tool_schema
-from app.schemas.crypto_currencies_schema import download_btc_data_tool
-from app.functions.crypto_currency_functions import download_btc_data
-from app.errors import ApiError, CryptoPriceError
-
-from app.schemas.shell_schema import command_exec_tool
-import os
 from collections import deque
-
-from app.functions.functions import print_calc
-from app.functions.functions import extract_code_block_from_string
-from app.functions.crypto_currency_functions import bitcoin_price_function
-
-from app.functions.shell_functions import run_command_secure
-
 from colorama import Fore, Style, init
 
+from app.tools.register import register_all_tools
 from app.prompts import get_system_prompt
-from app.utils.main import load_doc
 from app.utils.main import llm_classify_with_schema
+from app.message_handler import MessageHandler
+
+# Initialize colorama for Windows compatibility
+init(autoreset=True)  # Resets color after each print
+
+# Load environment variables
 load_dotenv()
 client = Anthropic()
 
+# Configuration settings
 MODEL = os.getenv("MODEL", "model")
 MAX_CONTEXT_WINDOW = int(os.getenv("CONTEXT_WINDOW", 200_000))
 MAX_TOKEN_BLOCK = int(os.getenv("MAX_TOKEN_BLOCK", 8000))
-
 PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
-
-# PRELOAD_FILES = ["chapter_one.yml"]
-# METADATA_FILE = "metadata.yml"
 METADATA_FILE = ""
 
-PRELOAD_FILES=[
+# Preload file list
+PRELOAD_FILES = [
     'app.py',
     'config.py',
     'routes.py',
     'utils.py',
-    ## more
     'update.md',
     'request.md',
     'todo.md',
     'metadata.yml'
 ]
 
-
-# Initialize colorama for Windows compatibility
-init(autoreset=True)  # Resets color after each print
-
-def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count: int = 0):
-
-    rag_content = None
-    if METADATA_FILE:
-        rag_content = load_doc(
-            base_path=PRELOAD_PATH,
-            metadata_file=METADATA_FILE
-        )
-    else:
-        rag_content = load_doc(
-            base_path=PRELOAD_PATH
-        )
-
-
-    system_prompt = get_system_prompt(rag_content, PRELOAD_PATH)
-
-    messages.append({"role": "user", "content": prompt})
-
-    args = {
-        "model": MODEL,
-        "system": system_prompt,
-        "messages": messages,
-    }
-
-    api_args = {
-        **args,
-        "max_tokens": 1000,
-        "tools": tools,
-        "tool_choice": {"type": "any"}
-    }
-
-    token_count = client.messages.count_tokens(**args)
-    print("token count", token_count, token_count.input_tokens)
-
-    response = None
-
-    if tool_choice:
-        response = client.messages.create(**api_args)
-    else:
-        args["max_tokens"] = 1000
-        response = client.messages.create(**args)
-
-        print("Not using tools based on classification.")
-
-
-
-    if token_count.input_tokens > MAX_TOKEN_BLOCK:
-        print("token individual count high")
-
-    print("res", response)
-
-    # Check if a tool call was made
-    if response.stop_reason == "tool_use" and tool_choice == 1:
-        content = response.content[-1]
-        tool_name = content.name
-        print(f"Tool requested: {tool_name}")
-
-        tool_result = None
-
-        if tool_name == download_btc_data_tool["name"]:
-            current_message = messages[-1]
-            try:
-                
-                status, result = download_btc_data()
-                if status == 1:
-                    raise ValueError("problem with api request")
-
-                statement = f"successfully downloaded csv file"
-                tool_result = statement
-                current_message["content"] += f"\n\n[Tool Output]:\n{statement}"
-            except Exception as e:
-                print(f"error: {e}")
-                return 1
-
-        if tool_name == crypto_price_tool_schema["name"]:
-            tool_input = content.input
-            tool_result = None
-            current_message = messages[-1]
-
-            
-
-            try:
-                # call tool
-                # Call tool only once
-                status, cmd_result = bitcoin_price_function(currency="usd")
-                print("st", status, cmd_result)
-
-                if status == 1:
-                    raise ValueError("problem with api request")
-
-                statement = f"Bitcoin current price: {cmd_result.get('bitcoin_price')}"
-                print("statement", statement)
-                current_message["content"] += f"\n\n[Tool Output]:\n{statement}"
-                tool_result = statement
-            except CryptoPriceError as e:
-                print(f"❌ Crypto Error: {e}")
-            except ApiError as e:
-                print(f"❌ General API Error: {e}")
-            except Exception as e:
-                print(f"error: {e}")
-                return 1 
-
-        if tool_name == command_exec_tool["name"]:
-            tool_input = content.input
-            input_cmd = tool_input['input_command']
-            sink = tool_input['working_dir']
-
-            tool_result = None
-            current_message = messages[-1]
-            print("curr", current_message)
-            # current_message['output'] = None
-
-            try:
-                cmd_output = run_command_secure(input_cmd, sink)
-                print("cmd", cmd_output, cmd_output['status'])
-                tool_result = cmd_output.get("output")
-                current_message["content"] += f"\n\n[Tool Output]:\n{tool_result}"
-                
-            except Exception as e:
-                tool_result = 1
-                print(e, "exception")
-                # current_message['output'] = e
-
-        if tool_name == code_write_tool["name"]:
-            print("Tool Invoked:", tool_name)
-            tool_input = content.input
-            input_text = tool_input.get('raw_text', '')
-            output_file = tool_input.get('output_file', 'app.temp.py')  # Default fallback
-            language_marker = tool_input.get('language_marker', 'python')
-            mode = tool_input.get('mode', 'overwrite')  # New parameter to control file behavior
-
-            
-            try:
-
-                print("Input Text:", input_text)
-                print(f"Writing to: {output_file} | Mode: {mode}")
-
-                # Call the function with dynamic parameters
-                extract_code_block_from_string(
-                    input_text=input_text,
-                    output_file=output_file,
-                    language_marker=language_marker,
-                    mode=mode
-                )
-
-                tool_result = 0  # Success
-            except Exception as e:
-                tool_result = 1  # Failure
-                print(f"Tool error for code writing, return code: {tool_result}, error: {e}")
-
-
-        if tool_name == calc_tool["name"]:
-            # Run the correct tool
-            tool_input = content.input
-            tool_result = print_calc(**tool_input)
-
-        # Add tool result as assistant response
-        assistant_response = f"Tool Result: {tool_result}"
-    else:
-        # Standard text-based response
-        message_block = response.content[-1]
-        assistant_response = message_block.text
-
-    messages.append({"role": "assistant", "content": assistant_response})
-
-    return assistant_response, messages, token_count
-
-
-
 def chat_loop():
+    """
+    Main chat loop for the application
+    """
+    # Register all tools
+    tool_schemas = register_all_tools()
+    
+    # Initialize client and message history
     client_instance = Anthropic()
     messages = deque(maxlen=50)
-    token_count: int = 0
+    token_count = 0
+    
+    # Create message handler
+    message_handler = MessageHandler(
+        client=client_instance,
+        model=MODEL,
+        preload_path=PRELOAD_PATH,
+        metadata_file=METADATA_FILE
+    )
 
     try:
         while True:
             print("messages", len(messages))
             user_input = input(Fore.GREEN + Style.BRIGHT + "You: ")
+            
+            # Check for exit command
             if user_input.lower() in ["exit", "quit", "bye"]:
                 print("Ending chat session.")
                 break
 
             # Classify whether a tool should be used
-            # prompt: str, client, model, tool_schemas: list)
             classification_result = llm_classify_with_schema(
                 prompt=user_input,
                 client=client_instance,
                 model=MODEL,
-                tool_schemas=tools
+                tool_schemas=tool_schemas
             )
+            
+            # Determine if we should use tools based on classification confidence
             classification_confidence = classification_result['confidence']
             print("calc", classification_confidence, classification_result)
             print("classification_result", classification_result['tool_name'])
-            tool_use = None
-            if classification_result['tool_name'] == 'None':
-                tool_use = 0
-            else:
-                tool_use = 1 if classification_confidence >= 0.5 else 0
-            print(tool_use, "tool")
+            
+            use_tools = False
+            if classification_result['tool_name'] != 'None':
+                use_tools = classification_confidence >= 0.5
+            print(use_tools, "tool")
 
-            # assistant_response, messages = exec(user_input, client_instance, messages, tool_use)
-            assistant_response, messages, token_count = exec(
-                user_input, client_instance, messages, tool_use
+            # Get system prompt
+            rag_content = message_handler._load_rag_content()
+            system_prompt = get_system_prompt(rag_content, PRELOAD_PATH)
+            
+            # Process the message
+            assistant_response, messages, token_count = message_handler.process_message(
+                prompt=user_input,
+                messages=list(messages),
+                system_prompt=system_prompt,
+                use_tools=use_tools
             )
 
+            # Check token limit
             token_limit = MAX_CONTEXT_WINDOW * 0.25
             if token_count.input_tokens >= token_limit:
                 print("token size at 25%")
 
+            # Display assistant response
             print(Fore.CYAN + Style.BRIGHT + f"Assistant: {assistant_response}\n")
+            
     except KeyboardInterrupt:
         print("\nChat session ended by user.")
-
-
 
 if __name__ == "__main__":
     chat_loop()
