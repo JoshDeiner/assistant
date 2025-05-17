@@ -11,7 +11,7 @@ from app.clients.factory_clients import ApiClientFactory
 from typing import Any, Dict
 from app.services.bitcoin_data_service import BitcoinDataService
 
-def bitcoin_price_tool(currency: str = "usd") -> tuple[int, dict]:
+def bitcoin_price_function(currency: str = "usd") -> tuple[int, dict]:
     """
     Fetches the current price of Bitcoin.
 

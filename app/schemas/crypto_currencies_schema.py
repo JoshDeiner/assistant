@@ -19,6 +19,7 @@ crypto_price_tool_schema = {
 }
 
 
+
 download_btc_data_tool = {
     "name": "download_btc_data",
     "description": (
@@ -27,18 +28,20 @@ download_btc_data_tool = {
         "otherwise fetches daily BTC-USD history since `start_date`, "
         "resamples to weekly starts (Mondays), saves to CSV, and returns the path."
     ),
-    "parameters": {
+    "input_schema": {
         "type": "object",
         "properties": {
             "csv_file_path": {
                 "type": "string",
-                "description": "Path for the CSV (default: app/dummyapp/btc_weekly_start.csv)"
+                "description": "Local filesystem path for the output CSV",
+                "default": "app/dummyapp/btc_weekly_start.csv"
             },
             "start_date": {
                 "type": "string",
                 "format": "date",
-                "description": "History start date (YYYY-MM-DD; default 2013-01-01)"
-            },
+                "description": "ISO date to begin download (YYYY-MM-DD)",
+                "default": "2013-01-01"
+            }
         },
         "required": []
     }

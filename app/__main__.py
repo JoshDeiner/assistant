@@ -8,8 +8,10 @@ from anthropic import Anthropic
 from app.schemas.schema import calc_tool
 from app.schemas.schema import code_write_tool
 from app.schemas.schema import code_write_tool
+
 from app.schemas.index import tools
 from app.schemas.crypto_currencies_schema import crypto_price_tool_schema
+from app.schemas.crypto_currencies_schema import download_btc_data_tool
 from app.errors import ApiError, CryptoPriceError
 
 from app.schemas.shell_schema import command_exec_tool
@@ -18,7 +20,7 @@ from collections import deque
 
 from app.functions.functions import print_calc
 from app.functions.functions import extract_code_block_from_string
-from app.functions.crypto_currency_functions import bitcoin_price_tool
+from app.functions.crypto_currency_functions import bitcoin_price_function
 
 from app.functions.shell_functions import run_command_secure
 
@@ -88,7 +90,7 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     }
 
     token_count = client.messages.count_tokens(**args)
-    print("tot", token_count, token_count.input_tokens)
+    print("token count", token_count, token_count.input_tokens)
 
     response = None
 
@@ -105,6 +107,8 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
     if token_count.input_tokens > MAX_TOKEN_BLOCK:
         print("token individual count high")
 
+    print("res", response)
+
     # Check if a tool call was made
     if response.stop_reason == "tool_use" and tool_choice == 1:
         content = response.content[-1]
@@ -113,15 +117,32 @@ def exec(prompt: str, client, messages: list, tool_choice: int = 0, token_count:
 
         tool_result = None
 
+        if tool_name == download_btc_data_tool["name"]:
+            current_message = messages[-1]
+            try:
+                
+                status, result = download_btc_data()
+                if status == 1:
+                    raise ValueError("problem with api request")
+
+                statement = f"successfully downloaded csv file"
+                tool_result = statement
+                current_message["content"] += f"\n\n[Tool Output]:\n{statement}"
+            except Exception as e:
+                print(f"error: {e}")
+                return 1
+
         if tool_name == crypto_price_tool_schema["name"]:
             tool_input = content.input
             tool_result = None
             current_message = messages[-1]
 
+            
+
             try:
                 # call tool
                 # Call tool only once
-                status, cmd_result = bitcoin_price_tool(currency="usd")
+                status, cmd_result = bitcoin_price_function(currency="usd")
                 print("st", status, cmd_result)
 
                 if status == 1:
@@ -220,8 +241,12 @@ def chat_loop():
                 break
 
             # Classify whether a tool should be used
+            # prompt: str, client, model, tool_schemas: list)
             classification_result = llm_classify_with_schema(
-                user_input, client_instance, MODEL, tools
+                prompt=user_input,
+                client=client_instance,
+                model=MODEL,
+                tool_schemas=tools
             )
             classification_confidence = classification_result['confidence']
             print("calc", classification_confidence, classification_result)
