@@ -12,6 +12,7 @@ from app.schemas.schema import code_write_tool
 from app.schemas.index import tools
 from app.schemas.crypto_currencies_schema import crypto_price_tool_schema
 from app.schemas.crypto_currencies_schema import download_btc_data_tool
+from app.functions.crypto_currency_functions import download_btc_data
 from app.errors import ApiError, CryptoPriceError
 
 from app.schemas.shell_schema import command_exec_tool

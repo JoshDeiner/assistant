@@ -1,1 +1,1 @@
-write flow for download crupto in main:wq
+setup streamlit and dummy data

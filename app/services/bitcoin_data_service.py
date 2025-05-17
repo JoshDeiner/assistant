@@ -1,8 +1,9 @@
-import os
 import subprocess
 import yfinance as yf
 import pandas as pd
 from typing import Tuple, Dict
+import os
+
 
 class BitcoinDataService:
     """
@@ -45,7 +46,7 @@ class BitcoinDataService:
             btc.index = pd.to_datetime(btc.index)
 
             # 4) Resample to weekly starts (Mondays) and take first 'Close' price
-            weekly_start = btc["Close"].resample("W-MON").first().to_frame(name="Close")
+            weekly_start = btc["Close"].resample("W-MON").first()
 
             # 5) Write to CSV
             weekly_start.to_csv(csv_file_path, index=True, header=True)
@@ -54,3 +55,5 @@ class BitcoinDataService:
 
         except Exception as e:
             return 1, {"error": str(e)}
+
+
