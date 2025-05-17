@@ -8,7 +8,7 @@ from os import makedirs
 from os.path import isfile
 from os.path import dirname
 from os.path import isdir
-
+from os import getenv
 
 class BitcoinDataService:
     """
@@ -17,7 +17,7 @@ class BitcoinDataService:
 
     @staticmethod
     def fetch_weekly_start(
-        csv_file_path: str = "app/dummyapp/btc_weekly_start.csv",
+        csv_file_path: str,
         start_date: str = "2013-01-01"
     ) -> Tuple[int, Dict]:
         """

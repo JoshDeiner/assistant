@@ -68,12 +68,12 @@ def flatten_directory(source, sink, ignore_list=None):
 
 # Example usage:
 
-# if __name__ == "__main__":
-#     source ="/workspaces/assistant/app"
-#     sink = "/workspaces/assistant/app/dummyapp"
-#     ignore_list=[".git", "__pycache__", "venv", "README.md"] 
-#     flatten_directory(
-#         "/path/to/source",
-#         "/path/to/sink",
-#         ignore_list=ignore_list 
-#     )
+if __name__ == "__main__":
+    source ="/workspaces/assistant/app"
+    sink = "/workspaces/assistant/inspection_app"
+    ignore_list=[".git", "__pycache__", "venv", "README.md"] 
+    flatten_directory(
+        source,
+        sink,
+        ignore_list=ignore_list 
+    )

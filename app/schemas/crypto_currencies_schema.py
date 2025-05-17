@@ -34,7 +34,7 @@ download_btc_data_tool = {
             "csv_file_path": {
                 "type": "string",
                 "description": "Local filesystem path for the output CSV",
-                "default": "app/dummyapp/btc_weekly_start.csv"
+                "default": "inspection_app/btc_weekly_start.csv"
             },
             "start_date": {
                 "type": "string",

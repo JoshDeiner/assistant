@@ -1,7 +1,9 @@
 think about how streamlit should be implemented
     * probably dont want an endless number of functions
 
-* implement and test out service to copy folder mapper
+* move dummyapp from inside app to outside and change name to inspection_app
+    * maybe use Abstract syntax tree for meaning
+
 
 
 cleanup main to follow solid/service based pattern

@@ -41,7 +41,8 @@ def download_btc_data(**kwargs: Any) -> Dict:
         "error": str              # if status == 1
       }
     """
-    csv_file_path = kwargs.get("csv_file_path", "app/dummyapp/btc_weekly_start.csv")
+    
+    csv_file_path = kwargs.get("csv_file_path", os.getenv("OTHER_APP", "app/other.csv"))
     start_date    = kwargs.get("start_date", "2013-01-01")
 
     status, result = BitcoinDataService.fetch_weekly_start(
