@@ -1,8 +1,13 @@
-import subprocess
 import yfinance as yf
-import pandas as pd
-from typing import Tuple, Dict
-import os
+from pandas import Timestamp
+from pandas import to_datetime
+from typing import Dict
+from typing import Tuple
+
+from os import makedirs
+from os.path import isfile
+from os.path import dirname
+from os.path import isdir
 
 
 class BitcoinDataService:
@@ -26,24 +31,24 @@ class BitcoinDataService:
             (1, {"error": "..."}) on failure
         """
         # 1) If the file already exists, skip download
-        if os.path.isfile(csv_file_path):
+        if isfile(csv_file_path):
             return 0, {"csv_file_path": csv_file_path}
 
         try:
             # 2) Ensure parent directory exists
-            parent_dir = os.path.dirname(csv_file_path)
-            if parent_dir and not os.path.isdir(parent_dir):
-                os.makedirs(parent_dir, exist_ok=True)
+            parent_dir = dirname(csv_file_path)
+            if parent_dir and not isdir(parent_dir):
+                makedirs(parent_dir, exist_ok=True)
 
             # 3) Download daily BTC-USD data
             btc = yf.download(
                 "BTC-USD",
                 start=start_date,
-                end=pd.Timestamp.today().strftime("%Y-%m-%d"),
+                end=Timestamp.today().strftime("%Y-%m-%d"),
                 interval="1d",
                 progress=False
             )
-            btc.index = pd.to_datetime(btc.index)
+            btc.index = to_datetime(btc.index)
 
             # 4) Resample to weekly starts (Mondays) and take first 'Close' price
             weekly_start = btc["Close"].resample("W-MON").first()
@@ -55,5 +60,4 @@ class BitcoinDataService:
 
         except Exception as e:
             return 1, {"error": str(e)}
-
 
