@@ -1,114 +1,86 @@
+Here’s a focused `README.md` that directly instructs an LLM (or developer) to create and use the Service Factory pattern.
 
-# 📈 **Streamlit Bitcoin Chart Viewer – Service Refactoring Guide**
+# 🏗️ **Service Factory Pattern for Dynamic Streamlit Clients**
 
-## 🎯 **Objective**
+## 📚 **Objective**
 
-Refactor the existing Streamlit application to:
+Implement a **Service Factory** to dynamically create and inject services into the `StreamlitClient` based on a requested service name or identifier.
 
-* Rename the generic `ChartService` to **`BitcoinChartService`** for clarity.
-* Restrict its current responsibility to Bitcoin-related chart visualization.
-* Keep the architecture extensible by enforcing a clear **BaseService abstraction**.
-* Ensure the application remains modular and follows clean design principles.
+This promotes modularity, decouples service creation from business logic, and supports dynamic behavior driven by external systems (e.g., LLM function calls).
 
 ---
 
-## 📝 **Instructions for Code Updates**
+## ✅ **Part 1: Create the `ServiceFactory` Class**
+
+* Define a `ServiceFactory` class responsible for instantiating services.
+* It should:
+
+  * Maintain a **mapping** of service names to their corresponding service classes.
+  * Accept **dynamic parameters** for service instantiation.
+  * Raise an error if an unknown service is requested.
 
 ---
 
-### 1️⃣ **Update `BaseService` to Be Abstract**
-
-Create or update `app/services/base_service.py`:
+### 📄 **Example Implementation (`service_factory.py`):**
 
 ```python
-from abc import ABC, abstractmethod
+from services.bitcoin_chart_service import BitcoinChartService
+from services.schema_inspector_service import SchemaInspectorService
 
-class BaseService(ABC):
-    @abstractmethod
-    def name(self):
-        """Return the unique name of the service."""
-        pass
+class ServiceFactory:
+    """Factory to create services dynamically based on a service type or command."""
 
-    @abstractmethod
-    def run(self):
-        """Main execution logic for the service in Streamlit."""
-        pass
+    @staticmethod
+    def create_service(service_name, **kwargs):
+        service_map = {
+            "bitcoin_chart": BitcoinChartService,
+            "schema_inspector": SchemaInspectorService,
+            # Add new services here as needed
+        }
+
+        service_class = service_map.get(service_name)
+        if not service_class:
+            raise ValueError(f"Unknown service requested: {service_name}")
+
+        return service_class(**kwargs)
 ```
 
 ---
 
-### 2️⃣ **Rename `ChartService` to `BitcoinChartService`**
+### 📌 **Key Design Notes:**
 
-Update or create `app/services/bitcoin_chart_service.py`:
+* The `service_map` centralizes available services.
+* Additional keyword arguments (`**kwargs`) allow passing configuration or initialization data to services.
+* Raising `ValueError` ensures invalid service requests are properly handled.
+
+---
+
+### 📦 **Usage Example:**
 
 ```python
-import streamlit as st
-import pandas as pd
-from app.services.base_service import BaseService
+from service_factory import ServiceFactory
+from streamlit_client import StreamlitClient
 
-class BitcoinChartService(BaseService):
-    def name(self):
-        return "Bitcoin Chart Service"
-    
-    def run(self):
-        st.header("📈 Bitcoin Chart Viewer")
+# Create a service dynamically
+service = ServiceFactory.create_service(
+    "bitcoin_chart",
+    default_file_path="btc_data.csv",
+    default_chart_title="Bitcoin Price Chart"
+)
 
-        file_path = st.text_input("CSV File Path", "btc_data.csv")
-        title = st.text_input("Chart Title", "Bitcoin Weekly Data Mapped")
-        chart_type = st.selectbox("Chart Type", ["Line", "Area", "Bar"])
-
-        if st.button("Generate Chart"):
-            try:
-                df = pd.read_csv(file_path)
-                if "Date" in df.columns:
-                    df["Date"] = pd.to_datetime(df["Date"])
-                    df = df.set_index("Date")
-
-                y_columns = [col for col in df.columns if col != "Date"]
-                selected_columns = st.multiselect("Select Columns to Plot", y_columns, default=y_columns[:1])
-
-                if selected_columns:
-                    if chart_type == "Line":
-                        st.line_chart(df[selected_columns])
-                    elif chart_type == "Area":
-                        st.area_chart(df[selected_columns])
-                    elif chart_type == "Bar":
-                        st.bar_chart(df[selected_columns])
-
-            except Exception as e:
-                st.error(f"Error: {e}")
+# Pass the service to the Streamlit client
+client = StreamlitClient(service)
+client.run()
 ```
 
 ---
 
-### 3️⃣ **Update Service Registration in `main.py`**
+## 🚀 **Benefits of Using a Service Factory**
 
-```python
-from app.services.bitcoin_chart_service import BitcoinChartService
-from app.service_registry import ServiceRegistry
-from app.client import StreamlitClient
-
-if __name__ == "__main__":
-    registry = ServiceRegistry()
-    registry.register(BitcoinChartService())
-
-    app = StreamlitClient(registry)
-    app.run()
-```
+* ✅ Clean separation between service creation and application logic.
+* ✅ Easy to add or remove services in one place (`service_map`).
+* ✅ Supports dynamic, runtime decisions for which service to load.
 
 ---
 
-### 📚 **Optional Enhancements**
-
-* Create a new `ChartService` in the future to handle other financial instruments (e.g., Ethereum, Stocks).
-* Introduce a **configuration system** (YAML or JSON) to dynamically enable/disable services.
-* Implement **dynamic service discovery** by scanning the `services/` directory automatically.
-* Add a **service metadata system** so each service can describe its purpose and expected inputs.
-
----
-
-## ✅ **Expected Outcome**
-
-* Clear and specific class responsibility (`BitcoinChartService` is only for Bitcoin charts).
-* Easy future expansion through the `BaseService` abstraction.
-* Clean, readable, and maintainable code structure.
+> **Note:** Ensure that all service classes implement a common interface like `BaseService` to maintain consistency and compatibility with `StreamlitClient`.

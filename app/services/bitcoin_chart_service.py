@@ -1,12 +1,12 @@
 import streamlit as st
 import pandas as pd
-from services.base_service import BaseService
+from app.services.base_service import BaseService
 
 
 class BitcoinChartService(BaseService):
-    def __init__(self, default_file_path="btc_data.csv", default_chart_title="Bitcoin Weekly Data"):
-        self.file_path = default_file_path
-        self.default_chart_title = default_chart_title
+    def __init__(self, file_path="btc_data.csv", chart_title="Bitcoin Weekly Data"):
+        self.default_file_path = file_path
+        self.default_chart_title = chart_title
 
     def execute(self, file_path=None, chart_title=None):
         """Generate and display a Bitcoin chart based on CSV data."""
