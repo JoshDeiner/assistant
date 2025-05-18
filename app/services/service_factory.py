@@ -2,9 +2,6 @@ from .bitcoin_chart_service import BitcoinChartService
 
 class ServiceFactory:
 
-    def __init__(self, service = None):
-
-
     """Factory to create services dynamically based on a service type or command."""
 
     @staticmethod
