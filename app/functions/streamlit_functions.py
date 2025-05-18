@@ -5,8 +5,10 @@ import subprocess
 from pathlib import Path
 from typing import Dict, Any, Tuple
 
-def launch_streamlit_visualization(service_name: str, file_path: str = "btc_data.csv", 
-                                  chart_title: str = "Bitcoin Data Visualization") -> Dict[str, Any]:
+def launch_streamlit_visualization(
+    service_name: str,
+    file_path: str = "btc_data.csv", 
+    chart_title: str = "Data Visualization") -> Dict[str, Any]:
     """
     Launch a Streamlit visualization with specified parameters.
     

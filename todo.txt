@@ -1,11 +1,5 @@
-add streamlit client to function calling
 
-
-
-
-    
-attach metadata| schema to streamlit output
-        * so errors are thrown when if output is off or ai can update the output
+work on economic analysis feature    
 
 * planner executor agent
 

@@ -5,10 +5,10 @@ Schema definitions for Streamlit-related tools
 streamlit_visualization_schema = {
     "name": "streamlit_visualization",
     "description": (
-        "Launches a Streamlit visualization dashboard based on the specified service. "
-        "The tool runs Streamlit as a subprocess and returns a URL where the visualization "
-        "can be accessed. Returns a tuple (status_code, result), where status_code is 0 for "
-        "success and 1 for failure."
+        """Launches a Streamlit visualization dashboard based on the specified service.
+        The tool runs Streamlit as a subprocess and returns a URL where the visualization
+        can be accessed. Returns a tuple (status_code, result), where status_code is 0 for 
+        success and 1 for failure."""
     ),
     "input_schema": {
         "type": "object",
@@ -16,7 +16,7 @@ streamlit_visualization_schema = {
             "service_name": {
                 "type": "string",
                 "description": "Type of visualization service to use",
-                "enum": ["bitcoin_chart", "bitcoin_data"],
+                "enum": ["bitcoin_chart"],
                 "default": "bitcoin_chart"
             },
             "file_path": {
@@ -27,9 +27,9 @@ streamlit_visualization_schema = {
             "chart_title": {
                 "type": "string",
                 "description": "Title to display on the chart",
-                "default": "Bitcoin Data Visualization"
+                "default": "Data Visualization"
             }
         },
-        "required": ["service_name"]
+        "required": ["service_name", "file_path"]
     }
 }
