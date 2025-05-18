@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from app.services.base_service import BaseService
+from .base_service import BaseService
 
 
 class BitcoinChartService(BaseService):

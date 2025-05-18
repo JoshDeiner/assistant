@@ -1,4 +1,6 @@
 add streamlit client to function calling
+    * figure out how it can run.
+    * where best to put streamlit client and orc
 attach metadata| schema to streamlit output
     * output that should go into streamlit  
         * so errors are thrown when if output is off or ai can update the output

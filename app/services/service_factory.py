@@ -1,5 +1,4 @@
-from app.services.bitcoin_chart_service import BitcoinChartService
-from app.services.bitcoin_data_service import BitcoinDataService
+from .bitcoin_chart_service import BitcoinChartService
 
 class ServiceFactory:
     """Factory to create services dynamically based on a service type or command."""
@@ -8,7 +7,6 @@ class ServiceFactory:
     def create_service(service_name, **kwargs):
         service_map = {
             "bitcoin_chart": BitcoinChartService,
-            "bitcoin_data": BitcoinDataService,
             # Add new services here as needed
         }
 
