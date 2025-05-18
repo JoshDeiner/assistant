@@ -1,9 +1,11 @@
 from app.clients.crypto_currency_clients import BitcoinPriceClient
+from app.clients.yfinance_client import YFinanceClient
 from app.clients.api_client import ApiClient
 
 class ApiClientFactory:
     _clients = {
         "bitcoin": BitcoinPriceClient,
+        "yfinance": YFinanceClient,
     }
 
     @staticmethod
