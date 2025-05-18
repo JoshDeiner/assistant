@@ -1,13 +1,16 @@
 from .bitcoin_chart_service import BitcoinChartService
 
 class ServiceFactory:
+
+    def __init__(self, service = None):
+
+
     """Factory to create services dynamically based on a service type or command."""
 
     @staticmethod
     def create_service(service_name, **kwargs):
         service_map = {
             "bitcoin_chart": BitcoinChartService,
-            # Add new services here as needed
         }
 
         service_class = service_map.get(service_name)

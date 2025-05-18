@@ -2,8 +2,8 @@ import sys
 from pathlib import Path
 
 import streamlit as st
-from services.service_factory import ServiceFactory
-from streamlit_client import StreamlitClient
+from app.services.service_factory import ServiceFactory
+from app.streamlit.streamlit_client import StreamlitClient
 
 
 class StreamlitOrchestrator:

@@ -18,39 +18,6 @@ class BitcoinDataService(BaseService):
     Service for fetching and persisting Bitcoin historical data.
     """
     
-    # def execute(self, file_path=None, start_date=None):
-    #     """
-    #     Main execution logic for the service.
-    #     Fetches Bitcoin data and displays it in Streamlit.
-    #     """
-    #     file_path = file_path or self.default_file_path
-    #     start_date = start_date or self.default_start_date
-        
-    #     st.title("Bitcoin Data Service")
-    #     st.write("## Fetch and Display Bitcoin Historical Data")
-        
-    #     # Control panel
-    #     file_path = st.sidebar.text_input("CSV File Path", file_path)
-    #     start_date = st.sidebar.text_input("Start Date (YYYY-MM-DD)", start_date)
-        
-    #     if st.sidebar.button("Fetch Bitcoin Data"):
-    #         with st.spinner("Fetching Bitcoin data..."):
-    #             status, result = self.fetch_weekly_start(file_path, start_date)
-                
-    #             if status == 0:
-    #                 st.success(f"Data successfully saved to {result['csv_file_path']}")
-    #                 # Display the data
-    #                 try:
-    #                     df = pd.read_csv(result['csv_file_path'])
-    #                     df['Date'] = pd.to_datetime(df['Date'])
-    #                     st.write("### Bitcoin Weekly Data")
-    #                     st.dataframe(df)
-    #                     st.line_chart(df.set_index('Date'))
-    #                 except Exception as e:
-    #                     st.error(f"Error displaying data: {e}")
-    #             else:
-    #                 st.error(f"Error fetching data: {result['error']}")
-    
     @staticmethod
     def fetch_weekly_start(
         csv_file_path: str,
