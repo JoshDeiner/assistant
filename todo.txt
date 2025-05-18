@@ -1,4 +1,18 @@
 
+dynamically create the output for a speicific asset
+
+dynamically create the streamlit receiver so that no matter what the output can be mapped simply to a graph
+* idea being just show comparisons between assets
+
+create a graph class or service where you can take in n data sources over x time period
+* limit of 2 for now
+
+
+
+
+
+
+
 work on economic analysis feature    
 
 * planner executor agent
