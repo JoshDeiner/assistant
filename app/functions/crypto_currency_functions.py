@@ -42,7 +42,10 @@ def download_btc_data(**kwargs: Any) -> Dict:
       }
     """
     
-    csv_file_path = kwargs.get("csv_file_path", os.getenv("OTHER_APP", "app/other.csv"))
+    other_app_file = os.getenv("OTHER_APP", "1")
+    other_app_path = os.path.abspath(other_app_file)
+
+    csv_file_path = kwargs.get("csv_file_path", other_app_path)
     start_date    = kwargs.get("start_date", "2013-01-01")
 
     status, result = BitcoinDataService.fetch_weekly_start(

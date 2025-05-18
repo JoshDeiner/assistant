@@ -21,20 +21,21 @@ client = Anthropic()
 MODEL = os.getenv("MODEL", "model")
 MAX_CONTEXT_WINDOW = int(os.getenv("CONTEXT_WINDOW", 200_000))
 MAX_TOKEN_BLOCK = int(os.getenv("MAX_TOKEN_BLOCK", 8000))
-PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
+LOCAL_PATH = os.getenv("PRELOAD_PATH", "NONE")
+PRELOAD_PATH = os.path.abspath(LOCAL_PATH)
 METADATA_FILE = ""
 
 # Preload file list
-PRELOAD_FILES = [
-    'app.py',
-    'config.py',
-    'routes.py',
-    'utils.py',
-    'update.md',
-    'request.md',
-    'todo.md',
-    'metadata.yml'
-]
+#PRELOAD_FILES = [
+#    'app.py',
+#    'config.py',
+#    'routes.py',
+#    'utils.py',
+#    'update.md',
+#    'request.md',
+#    'todo.md',
+#    'metadata.yml'
+#]
 
 def chat_loop():
     """

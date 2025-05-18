@@ -6,7 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
+LOCAL_PATH = os.getenv("PRELOAD_PATH", "NONE")
+PRELOAD_PATH =  os.path.abspath(LOCAL_PATH)
 ALLOWED_DIRS = [PRELOAD_PATH]
 
 # Whitelisted Commands

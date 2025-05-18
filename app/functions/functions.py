@@ -24,7 +24,8 @@ def extract_code_block_from_string(input_text, output_file, language_marker="pyt
     inside_block = False
     extracted_lines = []
 
-    PRELOAD_PATH = os.getenv("PRELOAD_PATH", "NONE")
+    PRELOAD_LOCAL_PATH = os.getenv("PRELOAD_PATH", "NONE")
+    PRELOAD_PATH = os.path.abspath(PRELOAD_LOCAL_PATH)
 
     # Secure and restrict file path to the special directory
     safe_base_path = os.path.abspath(PRELOAD_PATH)

@@ -8,3 +8,4 @@ anthropic>=0.16.0
 python-dotenv>=1.0.0
 colorama>=0.4.6
 streamlit>=1.45.1
+yfinance>=0.2.28
