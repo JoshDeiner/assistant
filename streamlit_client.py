@@ -1,5 +1,5 @@
 import streamlit as st
-from services.base_service import BaseService
+from app.services.base_service import BaseService
 
 class StreamlitClient:
     def __init__(self, service=None):
