@@ -1,6 +1,7 @@
-validare that you're not constnatly making api calls. check if csv file exists if it does return 
 
-dynamically create the output for a speicific asset
+update btc client to make it a crypto currency client. make it generic for crypto currencies to include ethereum and others
+   * experiment
+
 
 dynamically create the streamlit receiver so that no matter what the output can be mapped simply to a graph
 * idea being just show comparisons between assets
