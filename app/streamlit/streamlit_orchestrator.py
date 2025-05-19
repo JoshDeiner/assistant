@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+import argparse
 
 # Add the project root to Python path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -41,6 +42,14 @@ class StreamlitOrchestrator:
             layout="wide"
         )
         
+        # Adjust file_path to use data directory if it's a relative path
+        if "file_path" in service_params and not Path(service_params["file_path"]).is_absolute():
+            # Check if path starts with 'data/'
+            if not service_params["file_path"].startswith("data/"):
+                # Construct path using project root /data directory
+                project_root = Path(__file__).resolve().parent.parent.parent
+                service_params["file_path"] = str(project_root / "data" / service_params["file_path"])
+        
         # Create the service dynamically using the injected service factory
         try:
             service = self.service_factory.create_service(service_name, **service_params)
@@ -54,21 +63,41 @@ class StreamlitOrchestrator:
         """
         Returns the default configuration for the application.
         This can be extended to load from environment variables, config files, etc.
+        This should ONLY be used for testing purposes.
         
         Returns:
             dict: Default configuration parameters
         """
+        # Construct absolute path to data file in data directory
+        project_root = Path(__file__).resolve().parent.parent.parent
         return {
             "service_name": "bitcoin_chart",
-            "file_path": "btc_data.csv",
-            "chart_title": "BTC Weekly Overview"
+            "file_path": str(project_root / "data" / "bitcoin_data.csv"),
+            "chart_title": "Bitcoin Data Visualization"
         }
 
 
-if __name__ == "__main__":
-    # Create and run the application with default configuration
-    orchestrator = StreamlitOrchestrator()
-    config = orchestrator.get_default_config()
+def parse_args():
+    """Parse command line arguments passed to the script."""
+    parser = argparse.ArgumentParser(description="Streamlit visualization application")
+    parser.add_argument("--service_name", default="bitcoin_chart", help="Service name to use")
+    parser.add_argument("--file_path", default="bitcoin_data.csv", help="Path to data file")
+    parser.add_argument("--chart_title", default="Data Visualization", help="Chart title")
     
-    # This could be modified to accept command line arguments or LLM function calls
-    orchestrator.run(**config)
+    # Parse known args to handle Streamlit's own arguments
+    args, _ = parser.parse_known_args()
+    return args
+
+
+if __name__ == "__main__":
+    orchestrator = StreamlitOrchestrator()
+    
+    # Parse command line arguments
+    args = parse_args()
+    
+    # Use parsed arguments instead of default config
+    orchestrator.run(
+        service_name=args.service_name,
+        file_path=args.file_path,
+        chart_title=args.chart_title
+    )

@@ -37,7 +37,7 @@ class StreamlitVisualizationTool(Tool):
         """
         # Extract parameters
         service_name = tool_input.get("service_name")
-        file_path = tool_input.get("file_path", "btc_data.csv")
+        file_path = tool_input.get("file_path", "bitcoin_data.csv")  # Default to bitcoin_data.csv in data dir
         chart_title = tool_input.get("chart_title", "Bitcoin Data Visualization")
         
         # Call the function

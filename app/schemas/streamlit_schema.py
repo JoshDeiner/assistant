@@ -22,7 +22,7 @@ streamlit_visualization_schema = {
             "file_path": {
                 "type": "string",
                 "description": "Path to the data file to visualize",
-                "default": "btc_data.csv"
+                "default": "bitcoin_data.csv"
             },
             "chart_title": {
                 "type": "string",

@@ -11,7 +11,16 @@ PRELOAD_PATH =  os.path.abspath(LOCAL_PATH)
 ALLOWED_DIRS = [PRELOAD_PATH]
 
 # Whitelisted Commands
-ALLOWED_COMMANDS = ["pytest", "python3", "ls", "echo", "cat", "grep", "make"]
+ALLOWED_COMMANDS = [
+        "pytest", 
+        "python3", 
+        "ls", 
+        "echo", 
+        "cat", 
+        "grep", 
+        "make",
+        "open"
+        ]
 
 def is_within_whitelist(target_path):
     target_path = os.path.abspath(target_path)

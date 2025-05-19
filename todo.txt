@@ -1,5 +1,5 @@
-test to see if #1 works 
-# test to see if streamlit work
+validare that you're not constnatly making api calls. check if csv file exists if it does return 
+
 dynamically create the output for a speicific asset
 
 dynamically create the streamlit receiver so that no matter what the output can be mapped simply to a graph
@@ -10,8 +10,9 @@ create a graph class or service where you can take in n data sources over x time
 
 
 
+create a function to open a browser ie 'open'
 
-
+create a function to read a file in memory
 
 
 work on economic analysis feature    

@@ -4,7 +4,7 @@ from .base_service import BaseService
 
 
 class BitcoinChartService(BaseService):
-    def __init__(self, file_path="btc_data.csv", chart_title="Bitcoin Weekly Data"):
+    def __init__(self, file_path="bitcoin_data.csv", chart_title="Bitcoin Weekly Data"):
         self.default_file_path = file_path
         self.default_chart_title = chart_title
 
