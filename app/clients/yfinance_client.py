@@ -1,9 +1,14 @@
 import os
 from typing import Tuple, Dict, Optional
 import yfinance as yf
-from api_client import ApiClient
+from .api_client import ApiClient
 from dotenv import load_dotenv
 
+
+
+def get_data_path():
+    data_env_path = os.getenv("DATA", "./data")
+    return os.path.abspath(data_env_path)
 
 class YFinanceClient(ApiClient):
     """
@@ -28,7 +33,7 @@ class YFinanceClient(ApiClient):
         # Get values from environment or use defaults
         self.period = period or os.getenv("PERIOD", "10y")
         self.interval = interval or os.getenv("INTERVAL_GRAPH", "1wk")
-        self.csv_file_path = csv_file_path or f"./data/{ticker.lower()}_data.csv"
+        self.csv_file_path = csv_file_path or f"{get_data_path()}/{ticker.lower()}_data.csv"
 
     @property
     def BASE_URL(self) -> str:

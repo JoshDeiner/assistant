@@ -1,4 +1,16 @@
 import os
+import dotenv
+
+# Load environment variables
+dotenv.load_dotenv()
+
+def get_data_path():
+    """
+    Returns the absolute path of the data folder by leveraging the DATA env variable.
+    The function reads the DATA environment variable and converts it to an absolute path.
+    """
+    data_env_path = os.getenv("DATA", "./data")
+    return os.path.abspath(data_env_path)
 
 def load_doc(base_path):
     rag_content = ""
