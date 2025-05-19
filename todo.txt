@@ -1,25 +1,18 @@
 
-add finance ticker client to service factory
 
-update btc client to make it a crypto currency client. make it generic for crypto currencies to include ethereum and others
-   * experiment
-
-
-dynamically create the streamlit receiver so that no matter what the output can be mapped simply to a graph
-* idea being just show comparisons between assets
-
+-------------
 create a graph class or service where you can take in n data sources over x time period
 * limit of 2 for now
 
 
-
+----------
 create a function to open a browser ie 'open'
 
 create a function to read a file in memory
 
-
+----------
 work on economic analysis feature    
-
+-------
 * planner executor agent
 
 * think about using ast

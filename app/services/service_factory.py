@@ -1,5 +1,6 @@
 from .bitcoin_chart_service import BitcoinChartService
 from .bitcoin_data_service import BitcoinDataService
+from .yfinance_service import YFinanceService
 
 
 class ServiceFactory:
@@ -10,7 +11,8 @@ class ServiceFactory:
     def create_service(service_name, **kwargs):
         service_map = {
             "bitcoin_chart": BitcoinChartService,
-            "bitcoin_data": BitcoinDataService
+            "bitcoin_data": BitcoinDataService,
+            "asset_service": YFinanceService
         }
 
         service_class = service_map.get(service_name)
