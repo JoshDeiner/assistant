@@ -7,9 +7,9 @@ from typing import Tuple, Dict
 from dotenv import load_dotenv
 # Add the parent directory to sys.path to allow absolute imports
 from app.clients.factory_clients import ApiClientFactory
+from app.services.service_factory import ServiceFactory
 
 from typing import Any, Dict
-from app.services.bitcoin_data_service import BitcoinDataService
 
 def bitcoin_price_function(currency: str = "usd") -> tuple[int, dict]:
     """
@@ -48,14 +48,17 @@ def download_btc_data(**kwargs: Any) -> Dict:
     csv_file_path = kwargs.get("csv_file_path", "bitcoin_data.csv")
     full_csv_file_path = os.path.join(other_app_path, csv_file_path)
 
-    if os.isfile(full_csv_file_path):
+    if os.path.isfile(full_csv_file_path):
         # If the file already exists, we can skip downloading it again
         return {"status": 0, "csv_file_path": full_csv_file_path}
 
     # probably create a tuility that says current date minus ten years
     start_date    = kwargs.get("start_date", "2013-01-01")
 
-    status, result = BitcoinDataService.fetch_weekly_start(
+    # Use the service factory to get the BitcoinDataService
+    bitcoin_data_service = ServiceFactory.create_service("bitcoin_data")
+    status, result = bitcoin_data_service.execute(
+        operation='fetch_weekly_start',
         csv_file_path=full_csv_file_path,
         start_date=start_date
     )

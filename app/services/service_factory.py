@@ -1,5 +1,5 @@
 from .bitcoin_chart_service import BitcoinChartService
-
+from .bitcoin_data_service import BitcoinDataService
 
 
 class ServiceFactory:
@@ -9,7 +9,8 @@ class ServiceFactory:
     @staticmethod
     def create_service(service_name, **kwargs):
         service_map = {
-            "bitcoin_chart": BitcoinChartService
+            "bitcoin_chart": BitcoinChartService,
+            "bitcoin_data": BitcoinDataService
         }
 
         service_class = service_map.get(service_name)

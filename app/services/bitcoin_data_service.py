@@ -18,6 +18,22 @@ class BitcoinDataService(BaseService):
     Service for fetching and persisting Bitcoin historical data.
     """
     
+    def __init__(self, **kwargs):
+        # Initialize with any needed parameters
+        pass
+        
+    def execute(self, *args, **kwargs):
+        """Main execution logic for the service."""
+        # Get the operation type from kwargs
+        operation = kwargs.get('operation', 'fetch_weekly_start')
+        
+        if operation == 'fetch_weekly_start':
+            csv_file_path = kwargs.get('csv_file_path')
+            start_date = kwargs.get('start_date', "2013-01-01")
+            return self.fetch_weekly_start(csv_file_path, start_date)
+        else:
+            raise ValueError(f"Unknown operation: {operation}")
+    
     @staticmethod
     def fetch_weekly_start(
         csv_file_path: str,

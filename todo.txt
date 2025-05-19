@@ -1,4 +1,6 @@
 
+add finance ticker client to service factory
+
 update btc client to make it a crypto currency client. make it generic for crypto currencies to include ethereum and others
    * experiment
 
