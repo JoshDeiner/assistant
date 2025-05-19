@@ -8,3 +8,4 @@ venv/
 __pycache__/
 dummyapp/
 inspection_app
+data

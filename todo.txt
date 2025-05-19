@@ -1,14 +1,5 @@
 
 
--------------
-create a graph class or service where you can take in n data sources over x time period
-* limit of 2 for now
-
-
-----------
-create a function to open a browser ie 'open'
-
-create a function to read a file in memory
 
 ----------
 work on economic analysis feature    
